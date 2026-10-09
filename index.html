@@ -58,7 +58,7 @@
       <!-- Controls -->
       <div class="flex items-center space-x-3 text-sm">
         <!-- Site Selector -->
-        <div class="relative">
+        <div class="relative flex items-center">
           <select id="siteSelect" onchange="app.changeSite(this.value)" class="bg-slate-800 border border-slate-700 text-amber-400 font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:border-amber-500 cursor-pointer">
             <!-- Dynamic Sites -->
           </select>
@@ -182,6 +182,42 @@
     </div>
   </div>
 
+  <!-- Date Attendance Detail Modal -->
+  <div id="attDateModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-lg"><i class="fa-solid fa-calendar-check text-amber-400 mr-2"></i>Attendance & Wage Entry</h3>
+        <button onclick="app.closeModal('attDateModal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="app.saveDateAttendance(event)" class="space-y-3">
+        <input type="hidden" id="modalWorkerId">
+        <input type="hidden" id="modalDate">
+        <div class="text-xs text-amber-400 font-semibold" id="modalDateTitle"></div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Status</label>
+          <select id="modalStatus" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+            <option value="Present">Present (Full Day)</option>
+            <option value="Half-Day">Half-Day</option>
+            <option value="Absent">Absent</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Daily Wage Payout (₹)</label>
+          <input type="number" id="modalPayout" min="0" step="any" placeholder="600" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-amber-400 font-bold focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Note / Remark</label>
+          <input type="text" id="modalNote" placeholder="e.g. Overtime 2 hours, special task" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="app.closeModal('attDateModal')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-semibold hover:bg-slate-700">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">Save Record</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Add Site Modal -->
   <div id="addSiteModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
@@ -232,6 +268,8 @@
         this.attendance = []; // { id, workerId, date, status, payout, note, site }
         this.payouts = [];    // { id, workerId, amount, mode, note, date, site }
         this.inflows = [];    // { id, amount, mode, note, date, site }
+        this.selectedWorkerForCalendar = null;
+        this.calendarMonth = new Date();
         this.user = null;
         this.authMode = 'login';
 
@@ -287,28 +325,27 @@
       listenToCloudData() {
         if (!this.user) return;
 
-        // Listen to Workers
         db.collection('users').doc(this.user.uid).collection('workers')
           .onSnapshot(snapshot => {
             this.workers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if (!this.selectedWorkerForCalendar && this.workers.length > 0) {
+              this.selectedWorkerForCalendar = this.workers[0].id;
+            }
             this.renderCurrentView();
           });
 
-        // Listen to Attendance
         db.collection('users').doc(this.user.uid).collection('attendance')
           .onSnapshot(snapshot => {
             this.attendance = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             this.renderCurrentView();
           });
 
-        // Listen to Payouts
         db.collection('users').doc(this.user.uid).collection('payouts')
           .onSnapshot(snapshot => {
             this.payouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             this.renderCurrentView();
           });
 
-        // Listen to Inflows
         db.collection('users').doc(this.user.uid).collection('inflows')
           .onSnapshot(snapshot => {
             this.inflows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -321,6 +358,9 @@
         this.attendance = JSON.parse(localStorage.getItem('tp_attendance') || '[]');
         this.payouts = JSON.parse(localStorage.getItem('tp_payouts') || '[]');
         this.inflows = JSON.parse(localStorage.getItem('tp_inflows') || '[]');
+        if (this.workers.length > 0) {
+          this.selectedWorkerForCalendar = this.workers[0].id;
+        }
         this.renderCurrentView();
       }
 
@@ -424,7 +464,14 @@
                       ${w.role || 'Helper'}
                     </span>
                   </div>
-                  <button onclick="app.deleteWorker('${w.id}')" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-sm"></i></button>
+                  <div class="flex gap-1">
+                    <button onclick="app.viewWorkerCalendar('${w.id}')" class="text-amber-400 hover:bg-slate-800 p-1.5 rounded" title="View Calendar">
+                      <i class="fa-solid fa-calendar-days text-sm"></i>
+                    </button>
+                    <button onclick="app.deleteWorker('${w.id}')" class="text-slate-500 hover:text-red-400 p-1.5 rounded" title="Delete Worker">
+                      <i class="fa-solid fa-trash text-sm"></i>
+                    </button>
+                  </div>
                 </div>
                 <div class="pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
                   <span class="text-slate-400">Default Rate:</span>
@@ -439,6 +486,11 @@
         container.innerHTML = html;
       }
 
+      viewWorkerCalendar(workerId) {
+        this.selectedWorkerForCalendar = workerId;
+        this.switchTab('attendance');
+      }
+
       saveWorker(e) {
         e.preventDefault();
         const name = document.getElementById('workerName').value;
@@ -450,7 +502,9 @@
         if (this.user) {
           db.collection('users').doc(this.user.uid).collection('workers').add(workerData);
         } else {
-          this.workers.push({ id: Date.now().toString(), ...workerData });
+          const id = Date.now().toString();
+          this.workers.push({ id, ...workerData });
+          if (!this.selectedWorkerForCalendar) this.selectedWorkerForCalendar = id;
           this.saveLocalData();
           this.renderCurrentView();
         }
@@ -465,95 +519,159 @@
           db.collection('users').doc(this.user.uid).collection('workers').doc(id).delete();
         } else {
           this.workers = this.workers.filter(w => w.id !== id);
+          if (this.selectedWorkerForCalendar === id) {
+            this.selectedWorkerForCalendar = this.workers[0]?.id || null;
+          }
           this.saveLocalData();
           this.renderCurrentView();
         }
       }
 
-      // ATTENDANCE CALENDAR VIEW
+      // RICH ATTENDANCE CALENDAR VIEW
       renderAttendanceView(container) {
         const siteWorkers = this.workers.filter(w => !w.site || w.site === this.currentSite);
-        const today = new Date().toISOString().split('T')[0];
+        if (!this.selectedWorkerForCalendar && siteWorkers.length > 0) {
+          this.selectedWorkerForCalendar = siteWorkers[0].id;
+        }
+
+        const activeWorker = siteWorkers.find(w => w.id === this.selectedWorkerForCalendar);
 
         let html = `
           <div class="space-y-4">
             <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center flex-wrap gap-3">
               <div>
-                <h2 class="text-lg font-bold text-white">Daily Attendance & Variable Wage Entry</h2>
-                <p class="text-xs text-slate-400">Mark daily attendance and custom wage payout per worker</p>
+                <h2 class="text-lg font-bold text-white">Individual Worker Attendance Calendar</h2>
+                <p class="text-xs text-slate-400">Click any calendar date to log variable daily wages & notes</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-slate-400">Select Worker:</label>
+                <select onchange="app.selectedWorkerForCalendar=this.value; app.renderCurrentView();" class="bg-slate-800 border border-slate-700 text-amber-400 font-bold px-3 py-1.5 rounded-lg text-sm focus:outline-none">
+                  ${siteWorkers.map(w => `<option value="${w.id}" ${w.id === this.selectedWorkerForCalendar ? 'selected' : ''}>${w.name} (${w.role})</option>`).join('')}
+                </select>
               </div>
             </div>
         `;
 
-        if (siteWorkers.length === 0) {
-          html += `<div class="text-center py-8 text-slate-400">Please add workers first.</div>`;
+        if (!activeWorker) {
+          html += `<div class="text-center py-12 text-slate-400">No workers available for this site.</div>`;
         } else {
-          html += `<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
-            <div class="overflow-x-auto">
-              <table class="w-full text-left text-sm text-slate-300">
-                <thead class="bg-slate-950 text-slate-400 uppercase text-xs">
-                  <tr>
-                    <th class="p-3.5">Worker</th>
-                    <th class="p-3.5">Role</th>
-                    <th class="p-3.5">Status Today</th>
-                    <th class="p-3.5">Today Payout (₹)</th>
-                    <th class="p-3.5">Note</th>
-                    <th class="p-3.5">Action</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/80">`;
+          const year = this.calendarMonth.getFullYear();
+          const month = this.calendarMonth.getMonth();
+          const monthName = this.calendarMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-          siteWorkers.forEach(w => {
-            const att = this.attendance.find(a => a.workerId === w.id && a.date === today) || {};
+          const firstDay = new Date(year, month, 1).getDay();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          html += `
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-4">
+              <!-- Calendar Navigation -->
+              <div class="flex justify-between items-center">
+                <button onclick="app.prevMonth()" class="px-3 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700"><i class="fa-solid fa-chevron-left"></i></button>
+                <h3 class="font-bold text-white text-base">${monthName} - <span class="text-amber-400">${activeWorker.name}</span></h3>
+                <button onclick="app.nextMonth()" class="px-3 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+
+              <!-- Days Grid Header -->
+              <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs text-slate-500 uppercase">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+              </div>
+
+              <!-- Calendar Dates Grid -->
+              <div class="grid grid-cols-7 gap-1.5 text-xs">
+          `;
+
+          // Empty pre-padding days
+          for (let i = 0; i < firstDay; i++) {
+            html += `<div class="h-16 bg-slate-950/30 rounded border border-slate-800/20"></div>`;
+          }
+
+          // Days of Month
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const att = this.attendance.find(a => a.workerId === activeWorker.id && a.date === dateStr);
+
+            let bgClass = "bg-slate-800/40 border-slate-800 hover:border-slate-600";
+            let badge = "";
+            let payoutText = "";
+
+            if (att) {
+              if (att.status === 'Present') {
+                bgClass = "bg-emerald-950/40 border-emerald-500/50 hover:border-emerald-400";
+                badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-bold">Present</span>`;
+              } else if (att.status === 'Half-Day') {
+                bgClass = "bg-amber-950/40 border-amber-500/50 hover:border-amber-400";
+                badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-400 font-bold">Half</span>`;
+              } else if (att.status === 'Absent') {
+                bgClass = "bg-red-950/40 border-red-500/50 hover:border-red-400";
+                badge = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-red-500/20 text-red-400 font-bold">Absent</span>`;
+              }
+
+              if (att.payout !== undefined) {
+                payoutText = `<div class="text-[11px] font-extrabold text-amber-400 mt-1">₹${att.payout}</div>`;
+              }
+            }
+
             html += `
-              <tr class="hover:bg-slate-800/40">
-                <td class="p-3.5 font-bold text-white">${w.name}</td>
-                <td class="p-3.5"><span class="text-xs text-amber-400">${w.role}</span></td>
-                <td class="p-3.5">
-                  <select id="att-status-${w.id}" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white">
-                    <option value="Present" ${att.status === 'Present' ? 'selected' : ''}>Full Day</option>
-                    <option value="Half-Day" ${att.status === 'Half-Day' ? 'selected' : ''}>Half Day</option>
-                    <option value="Absent" ${att.status === 'Absent' ? 'selected' : ''}>Absent</option>
-                  </select>
-                </td>
-                <td class="p-3.5">
-                  <input type="number" id="att-payout-${w.id}" value="${att.payout !== undefined ? att.payout : w.rate}" step="any" min="0" class="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-amber-400 font-bold">
-                </td>
-                <td class="p-3.5">
-                  <input type="text" id="att-note-${w.id}" value="${att.note || ''}" placeholder="Remarks" class="w-32 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300">
-                </td>
-                <td class="p-3.5">
-                  <button onclick="app.saveAttendance('${w.id}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded text-xs">
-                    Save
-                  </button>
-                </td>
-              </tr>
+              <div onclick="app.openDateModal('${activeWorker.id}', '${dateStr}')" class="h-16 ${bgClass} rounded border p-1.5 flex flex-col justify-between cursor-pointer transition">
+                <div class="flex justify-between items-start">
+                  <span class="font-bold text-white">${d}</span>
+                  ${badge}
+                </div>
+                ${payoutText}
+                ${att && att.note ? `<div class="text-[9px] text-slate-400 truncate" title="${att.note}"><i class="fa-solid fa-note-sticky text-amber-400/80 mr-0.5"></i>${att.note}</div>` : ''}
+              </div>
             `;
-          });
+          }
 
-          html += `</tbody></table></div></div>`;
+          html += `</div></div>`;
         }
 
         html += `</div>`;
         container.innerHTML = html;
       }
 
-      saveAttendance(workerId) {
-        const today = new Date().toISOString().split('T')[0];
-        const status = document.getElementById(`att-status-${workerId}`).value;
-        const payout = parseFloat(document.getElementById(`att-payout-${workerId}`).value) || 0;
-        const note = document.getElementById(`att-note-${workerId}`).value;
+      prevMonth() {
+        this.calendarMonth.setMonth(this.calendarMonth.getMonth() - 1);
+        this.renderCurrentView();
+      }
+
+      nextMonth() {
+        this.calendarMonth.setMonth(this.calendarMonth.getMonth() + 1);
+        this.renderCurrentView();
+      }
+
+      openDateModal(workerId, dateStr) {
+        const worker = this.workers.find(w => w.id === workerId);
+        const att = this.attendance.find(a => a.workerId === workerId && a.date === dateStr) || {};
+
+        document.getElementById('modalWorkerId').value = workerId;
+        document.getElementById('modalDate').value = dateStr;
+        document.getElementById('modalDateTitle').innerText = `${worker ? worker.name : ''} - ${dateStr}`;
+        document.getElementById('modalStatus').value = att.status || 'Present';
+        document.getElementById('modalPayout').value = att.payout !== undefined ? att.payout : (worker ? worker.rate : 0);
+        document.getElementById('modalNote').value = att.note || '';
+
+        this.openModal('attDateModal');
+      }
+
+      saveDateAttendance(e) {
+        e.preventDefault();
+        const workerId = document.getElementById('modalWorkerId').value;
+        const date = document.getElementById('modalDate').value;
+        const status = document.getElementById('modalStatus').value;
+        const payout = parseFloat(document.getElementById('modalPayout').value) || 0;
+        const note = document.getElementById('modalNote').value;
 
         const attData = {
           workerId,
-          date: today,
+          date,
           status,
           payout,
           note,
           site: this.currentSite
         };
 
-        const existing = this.attendance.find(a => a.workerId === workerId && a.date === today);
+        const existing = this.attendance.find(a => a.workerId === workerId && a.date === date);
 
         if (this.user) {
           if (existing && existing.id) {
@@ -570,6 +688,8 @@
           this.saveLocalData();
           this.renderCurrentView();
         }
+
+        this.closeModal('attDateModal');
       }
 
       // PAYOUTS VIEW
@@ -582,7 +702,7 @@
             <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
               <div>
                 <h2 class="text-lg font-bold text-white">Labour Advance & Wage Payout Log</h2>
-                <p class="text-xs text-slate-400">Record cash / UPI payouts given to workers</p>
+                <p class="text-xs text-slate-400">Record cash, UPI, or bank payouts given to workers with notes</p>
               </div>
             </div>
 
@@ -603,13 +723,13 @@
                   <label class="block text-slate-400 mb-1">Payment Mode</label>
                   <select id="payMode" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
                     <option value="Cash">Cash</option>
-                    <option value="UPI">UPI / PhonePe</option>
+                    <option value="UPI">UPI / PhonePe / GPay</option>
                     <option value="Bank Transfer">Bank Transfer</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-slate-400 mb-1">Note / Remark</label>
-                  <input type="text" id="payNote" placeholder="Festival Advance" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                  <input type="text" id="payNote" placeholder="Festival Advance / Equipment" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
                 </div>
                 <div class="flex items-end">
                   <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded">
@@ -627,7 +747,7 @@
                     <th class="p-3">Worker</th>
                     <th class="p-3">Amount</th>
                     <th class="p-3">Mode</th>
-                    <th class="p-3">Note</th>
+                    <th class="p-3">Note / Remark</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">`;
@@ -680,7 +800,7 @@
             <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
               <div>
                 <h2 class="text-lg font-bold text-white">Client Payment Receipts</h2>
-                <p class="text-xs text-slate-400">Track incoming payments from main contractor / owner</p>
+                <p class="text-xs text-slate-400">Track incoming payments from main contractor or owner</p>
               </div>
             </div>
 
@@ -701,7 +821,7 @@
                 </div>
                 <div>
                   <label class="block text-slate-400 mb-1">Note / Stage</label>
-                  <input type="text" id="recNote" placeholder="Slab Completion" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                  <input type="text" id="recNote" placeholder="e.g. 3rd Floor Slab Completion" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
                 </div>
                 <div class="flex items-end">
                   <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2 rounded">
@@ -718,7 +838,7 @@
                     <th class="p-3">Date</th>
                     <th class="p-3">Amount</th>
                     <th class="p-3">Mode</th>
-                    <th class="p-3">Note</th>
+                    <th class="p-3">Note / Stage</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800">`;
