@@ -1,1281 +1,842 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ThekedarPro - Contractor Attendance & Expense Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        darkBg: '#0b0f19',
-                        cardBg: '#131c2e',
-                        cardHover: '#1e293b',
-                        accent: '#f59e0b', /* Contractor Amber */
-                        accentHover: '#d97706',
-                        darkBorder: '#1e293b'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-        .font-mono-custom {
-            font-family: 'JetBrains Mono', monospace;
-        }
-        ::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0b0f19;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-        .btn-press {
-            transition: all 0.1s ease;
-        }
-        .btn-press:active {
-            transform: scale(0.97);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThekedarPro - Dynamic Wage & Expense Manager</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase Web SDK (v9 Compatibility) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0b1120;
+      color: #f8fafc;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3b82f6;
+      border-radius: 4px;
+    }
+  </style>
 </head>
-<body class="bg-darkBg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
+<body class="min-h-screen flex flex-col justify-between custom-scrollbar">
 
-    <!-- Authentication / Login Modal View -->
-    <div id="loginScreen" class="fixed inset-0 z-50 bg-darkBg flex items-center justify-center p-4">
-        <div class="max-w-md w-full bg-cardBg border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl"></div>
-            
-            <div class="text-center mb-6">
-                <div class="w-16 h-16 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/10">
-                    <i class="fa-solid fa-helmet-safety text-3xl"></i>
-                </div>
-                <h1 class="text-2xl font-extrabold tracking-tight text-slate-100">ThekedarPro</h1>
-                <p class="text-xs text-slate-400 mt-1">Contractor Attendance, Custom Wage & Cashflow Tracker</p>
-            </div>
-
-            <form onsubmit="app.handleLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Site Supervisor / Phone</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-user"></i></span>
-                        <input type="text" id="loginUser" required value="supervisor" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter username">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Security Password / PIN</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-lock"></i></span>
-                        <input type="password" id="loginPass" required value="1234" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter PIN (e.g. 1234)">
-                    </div>
-                    <p class="text-[11px] text-slate-500 mt-1">Default Demo PIN: <code class="text-amber-400 font-mono-custom">1234</code></p>
-                </div>
-
-                <button type="submit" class="w-full mt-2 py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition btn-press flex items-center justify-center space-x-2">
-                    <span>Secure Login</span>
-                    <i class="fa-solid fa-arrow-right text-xs"></i>
-                </button>
-            </form>
-
-            <div class="mt-6 pt-4 border-t border-slate-800/80 text-center">
-                <span class="text-xs text-slate-500 flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> Offline-First Local Encrypted Storage
-                </span>
-            </div>
+  <!-- Header Navigation -->
+  <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-30 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="bg-amber-500 p-2.5 rounded-xl text-slate-950 font-black text-xl shadow-md">
+          <i class="fa-solid fa-helmet-safety"></i>
         </div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-tight flex items-center gap-2">
+            ThekedarPro
+            <span id="syncBadge" class="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <i class="fa-solid fa-cloud-check mr-1"></i> Cloud Synced
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">Dynamic Wage & Site Expense Manager</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flex items-center space-x-3 text-sm">
+        <!-- Site Selector -->
+        <div class="relative">
+          <select id="siteSelect" onchange="app.changeSite(this.value)" class="bg-slate-800 border border-slate-700 text-amber-400 font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:border-amber-500 cursor-pointer">
+            <!-- Dynamic Sites -->
+          </select>
+          <button onclick="app.openModal('addSiteModal')" title="Add New Construction Site" class="ml-1 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 rounded-lg transition">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+
+        <!-- Connection Status -->
+        <span id="connectionStatus" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Online
+        </span>
+
+        <!-- User Profile / Logout -->
+        <div id="userMenu" class="hidden items-center gap-2 border-l border-slate-800 pl-3">
+          <span id="userDisplay" class="text-xs font-medium text-slate-300"></span>
+          <button onclick="app.logout()" class="text-slate-400 hover:text-red-400 p-2 rounded-lg bg-slate-800 border border-slate-700 transition" title="Logout">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Main App Wrapper -->
-    <div id="mainApp" class="hidden flex-col min-h-screen">
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-950/60 border-t border-slate-800/80 px-4">
+      <div class="max-w-7xl mx-auto flex overflow-x-auto space-x-2 py-2 text-sm no-scrollbar">
+        <button onclick="app.switchTab('workers')" id="tab-workers" class="px-4 py-2 rounded-lg font-medium transition whitespace-nowrap bg-amber-500 text-slate-950 font-bold">
+          <i class="fa-solid fa-users mr-1.5"></i> Workers
+        </button>
+        <button onclick="app.switchTab('attendance')" id="tab-attendance" class="px-4 py-2 rounded-lg font-medium transition text-slate-400 hover:text-white whitespace-nowrap">
+          <i class="fa-solid fa-calendar-days mr-1.5"></i> Attendance Calendar
+        </button>
+        <button onclick="app.switchTab('payouts')" id="tab-payouts" class="px-4 py-2 rounded-lg font-medium transition text-slate-400 hover:text-white whitespace-nowrap">
+          <i class="fa-solid fa-wallet mr-1.5"></i> Labour Payments (Khata)
+        </button>
+        <button onclick="app.switchTab('inflow')" id="tab-inflow" class="px-4 py-2 rounded-lg font-medium transition text-slate-400 hover:text-white whitespace-nowrap">
+          <i class="fa-solid fa-hand-holding-dollar mr-1.5"></i> Client Inflow
+        </button>
+        <button onclick="app.switchTab('reports')" id="tab-reports" class="px-4 py-2 rounded-lg font-medium transition text-slate-400 hover:text-white whitespace-nowrap">
+          <i class="fa-solid fa-chart-pie mr-1.5"></i> Reports & Summary
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Auth Overlay Modal -->
+  <div id="authModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5">
+      <div class="text-center space-y-2">
+        <div class="inline-block p-3 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 text-2xl">
+          <i class="fa-solid fa-helmet-safety"></i>
+        </div>
+        <h2 class="text-xl font-bold text-white">Sign In to ThekedarPro</h2>
+        <p class="text-xs text-slate-400">Sync workers, attendance, & payouts securely in the cloud</p>
+      </div>
+
+      <form onsubmit="app.handleAuth(event)" class="space-y-4">
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Email Address</label>
+          <input type="email" id="authEmail" required placeholder="contractor@example.com" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Password</label>
+          <input type="password" id="authPassword" required placeholder="••••••••" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+
+        <div id="authError" class="hidden text-xs text-red-400 bg-red-500/10 p-2.5 rounded-lg border border-red-500/20"></div>
+
+        <div class="flex gap-2">
+          <button type="submit" onclick="app.authMode='login'" class="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-lg transition">
+            Sign In
+          </button>
+          <button type="submit" onclick="app.authMode='signup'" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 rounded-lg border border-slate-700 transition">
+            Register
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Content Body -->
+  <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full space-y-6">
+    <div id="tabContent">
+      <!-- Dynamic Views Rendered Here -->
+    </div>
+  </main>
+
+  <!-- Global Modals -->
+  <!-- Add Worker Modal -->
+  <div id="addWorkerModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-lg"><i class="fa-solid fa-user-plus text-amber-400 mr-2"></i>Add New Worker</h3>
+        <button onclick="app.closeModal('addWorkerModal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="app.saveWorker(event)" class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Worker Name</label>
+          <input type="text" id="workerName" required placeholder="e.g. Ramesh Kumar" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Role / Skill</label>
+          <select id="workerRole" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-amber-400 font-semibold focus:outline-none focus:border-amber-500">
+            <option value="Mason / Mistry">Mason / Mistry</option>
+            <option value="Helper">Helper</option>
+            <option value="Electrician">Electrician</option>
+            <option value="Plumber">Plumber</option>
+            <option value="Carpenter">Carpenter</option>
+            <option value="Painter">Painter</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Default Daily Rate (₹)</label>
+          <input type="number" id="workerRate" required min="1" step="any" placeholder="600" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="app.closeModal('addWorkerModal')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-semibold hover:bg-slate-700">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">Save Worker</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Site Modal -->
+  <div id="addSiteModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-lg"><i class="fa-solid fa-building text-amber-400 mr-2"></i>Add Construction Site</h3>
+        <button onclick="app.closeModal('addSiteModal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <form onsubmit="app.saveSite(event)" class="space-y-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-400 block mb-1">Site Name</label>
+          <input type="text" id="siteNameInput" required placeholder="e.g. Sector 62 Villa" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500">
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="app.closeModal('addSiteModal')" class="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 font-semibold hover:bg-slate-700">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-slate-950 font-bold hover:bg-amber-400">Create Site</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-slate-950 border-t border-slate-800/80 py-3 text-center text-xs text-slate-500">
+    ThekedarPro • Offline-First Contractor Management • Firebase Cloud Synced
+  </footer>
+
+  <script>
+    // HARDCODED FIREBASE CONFIGURATION
+    const firebaseConfig = {
+      apiKey: "AIzaSyD0PKlTMYZCwiL45fhZxD1z6-ymHbrDEAY",
+      authDomain: "contractor-4b526.firebaseapp.com",
+      projectId: "contractor-4b526",
+      storageBucket: "contractor-4b526.firebasestorage.app",
+      messagingSenderId: "421030593627",
+      appId: "1:421030593627:web:e228518339a946706a2b7e"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    class ThekedarApp {
+      constructor() {
+        this.currentTab = 'workers';
+        this.currentSite = 'Main Site';
+        this.sites = ['Main Site'];
+        this.workers = [];
+        this.attendance = []; // { id, workerId, date, status, payout, note, site }
+        this.payouts = [];    // { id, workerId, amount, mode, note, date, site }
+        this.inflows = [];    // { id, amount, mode, note, date, site }
+        this.user = null;
+        this.authMode = 'login';
+
+        this.init();
+      }
+
+      init() {
+        // Firebase Auth Listener
+        auth.onAuthStateChanged((user) => {
+          if (user) {
+            this.user = user;
+            document.getElementById('authModal').classList.add('hidden');
+            document.getElementById('userMenu').classList.remove('hidden');
+            document.getElementById('userMenu').classList.add('flex');
+            document.getElementById('userDisplay').innerText = user.email;
+            this.listenToCloudData();
+          } else {
+            this.user = null;
+            document.getElementById('authModal').classList.remove('hidden');
+            document.getElementById('userMenu').classList.add('hidden');
+            this.loadLocalData();
+          }
+        });
+
+        this.renderSiteSelector();
+        this.switchTab('workers');
+      }
+
+      handleAuth(e) {
+        e.preventDefault();
+        const email = document.getElementById('authEmail').value;
+        const pass = document.getElementById('authPassword').value;
+        const errDiv = document.getElementById('authError');
+        errDiv.classList.add('hidden');
+
+        if (this.authMode === 'login') {
+          auth.signInWithEmailAndPassword(email, pass).catch(err => {
+            errDiv.innerText = err.message;
+            errDiv.classList.remove('hidden');
+          });
+        } else {
+          auth.createUserWithEmailAndPassword(email, pass).catch(err => {
+            errDiv.innerText = err.message;
+            errDiv.classList.remove('hidden');
+          });
+        }
+      }
+
+      logout() {
+        auth.signOut();
+      }
+
+      listenToCloudData() {
+        if (!this.user) return;
+
+        // Listen to Workers
+        db.collection('users').doc(this.user.uid).collection('workers')
+          .onSnapshot(snapshot => {
+            this.workers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            this.renderCurrentView();
+          });
+
+        // Listen to Attendance
+        db.collection('users').doc(this.user.uid).collection('attendance')
+          .onSnapshot(snapshot => {
+            this.attendance = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            this.renderCurrentView();
+          });
+
+        // Listen to Payouts
+        db.collection('users').doc(this.user.uid).collection('payouts')
+          .onSnapshot(snapshot => {
+            this.payouts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            this.renderCurrentView();
+          });
+
+        // Listen to Inflows
+        db.collection('users').doc(this.user.uid).collection('inflows')
+          .onSnapshot(snapshot => {
+            this.inflows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            this.renderCurrentView();
+          });
+      }
+
+      loadLocalData() {
+        this.workers = JSON.parse(localStorage.getItem('tp_workers') || '[]');
+        this.attendance = JSON.parse(localStorage.getItem('tp_attendance') || '[]');
+        this.payouts = JSON.parse(localStorage.getItem('tp_payouts') || '[]');
+        this.inflows = JSON.parse(localStorage.getItem('tp_inflows') || '[]');
+        this.renderCurrentView();
+      }
+
+      saveLocalData() {
+        localStorage.setItem('tp_workers', JSON.stringify(this.workers));
+        localStorage.setItem('tp_attendance', JSON.stringify(this.attendance));
+        localStorage.setItem('tp_payouts', JSON.stringify(this.payouts));
+        localStorage.setItem('tp_inflows', JSON.stringify(this.inflows));
+      }
+
+      switchTab(tab) {
+        this.currentTab = tab;
+        ['workers', 'attendance', 'payouts', 'inflow', 'reports'].forEach(t => {
+          const btn = document.getElementById(`tab-${t}`);
+          if (btn) {
+            if (t === tab) {
+              btn.className = "px-4 py-2 rounded-lg font-medium transition whitespace-nowrap bg-amber-500 text-slate-950 font-bold";
+            } else {
+              btn.className = "px-4 py-2 rounded-lg font-medium transition text-slate-400 hover:text-white whitespace-nowrap";
+            }
+          }
+        });
+        this.renderCurrentView();
+      }
+
+      changeSite(site) {
+        this.currentSite = site;
+        this.renderCurrentView();
+      }
+
+      renderSiteSelector() {
+        const sel = document.getElementById('siteSelect');
+        if (!sel) return;
+        sel.innerHTML = this.sites.map(s => `<option value="${s}" ${s === this.currentSite ? 'selected' : ''}>Site: ${s}</option>`).join('');
+      }
+
+      saveSite(e) {
+        e.preventDefault();
+        const input = document.getElementById('siteNameInput');
+        if (input.value && !this.sites.includes(input.value)) {
+          this.sites.push(input.value);
+          this.currentSite = input.value;
+          this.renderSiteSelector();
+          input.value = '';
+          this.closeModal('addSiteModal');
+          this.renderCurrentView();
+        }
+      }
+
+      renderCurrentView() {
+        const container = document.getElementById('tabContent');
+        if (!container) return;
+
+        if (this.currentTab === 'workers') {
+          this.renderWorkersView(container);
+        } else if (this.currentTab === 'attendance') {
+          this.renderAttendanceView(container);
+        } else if (this.currentTab === 'payouts') {
+          this.renderPayoutsView(container);
+        } else if (this.currentTab === 'inflow') {
+          this.renderInflowView(container);
+        } else if (this.currentTab === 'reports') {
+          this.renderReportsView(container);
+        }
+      }
+
+      // WORKERS VIEW
+      renderWorkersView(container) {
+        const siteWorkers = this.workers.filter(w => !w.site || w.site === this.currentSite);
         
-        <!-- Header & Site Navigation -->
-        <header class="border-b border-slate-800 bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-4 py-3">
-            <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shadow-md">
-                        <i class="fa-solid fa-helmet-safety text-lg"></i>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h2 class="font-bold text-base leading-tight">ThekedarPro</h2>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Offline Active</span>
-                        </div>
-                        <p class="text-[11px] text-slate-400">Dynamic Wage & Site Expense Manager</p>
-                    </div>
-                </div>
-
-                <!-- Multi-Site / Project Selector -->
-                <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl p-1 px-2.5">
-                    <i class="fa-solid fa-building text-amber-400 text-xs"></i>
-                    <span class="text-xs text-slate-400 font-medium hidden sm:inline">Site:</span>
-                    <select id="siteSelector" onchange="app.switchSite(this.value)" class="bg-transparent text-xs font-bold text-slate-100 focus:outline-none cursor-pointer py-1">
-                        <!-- Populated dynamically -->
-                    </select>
-                    <button onclick="app.openNewSiteModal()" class="p-1 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition" title="Add New Site">
-                        <i class="fa-solid fa-plus text-xs"></i>
-                    </button>
-                </div>
-
-                <!-- Network Status & Logout -->
-                <div class="flex items-center space-x-3">
-                    <div id="statusBadge" class="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span id="statusText">Online</span>
-                    </div>
-
-                    <button onclick="app.simulateNetworkToggle()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition" title="Simulate Offline/Online">
-                        <i class="fa-solid fa-wifi text-xs"></i>
-                    </button>
-
-                    <button onclick="app.clearAllData()" class="p-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs transition" title="Reset / Clear Sample Data">
-                        <i class="fa-solid fa-rotate-left text-xs"></i>
-                    </button>
-
-                    <button onclick="app.logout()" class="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs transition" title="Logout">
-                        <i class="fa-solid fa-right-from-bracket text-xs"></i>
-                    </button>
-                </div>
+        let html = `
+          <div class="space-y-4">
+            <div class="flex justify-between items-center bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+              <div>
+                <h2 class="text-lg font-bold text-white">Worker Directory</h2>
+                <p class="text-xs text-slate-400">Manage daily wages and skilled roles for ${this.currentSite}</p>
+              </div>
+              <button onclick="app.openModal('addWorkerModal')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm shadow-md transition">
+                <i class="fa-solid fa-user-plus mr-1.5"></i> Add New Worker
+              </button>
             </div>
-        </header>
+        `;
 
-        <!-- Navigation Tabs -->
-        <nav class="bg-cardBg border-b border-slate-800 px-4">
-            <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-4 overflow-x-auto py-2">
-                <button onclick="app.switchTab('workers')" id="tab-workers" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap bg-amber-500 text-slate-950 shadow-md">
-                    <i class="fa-solid fa-users"></i>
-                    <span>Workers</span>
-                </button>
-                <button onclick="app.switchTab('calendar')" id="tab-calendar" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <span>Attendance Calendar</span>
-                </button>
-                <button onclick="app.switchTab('labourPayments')" id="tab-labourPayments" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
-                    <i class="fa-solid fa-wallet"></i>
-                    <span>Labour Payments (Khata)</span>
-                </button>
-                <button onclick="app.switchTab('clientReceipts')" id="tab-clientReceipts" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                    <span>Client Inflow</span>
-                </button>
-                <button onclick="app.switchTab('reports')" id="tab-reports" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    <span>Reports & Summary</span>
-                </button>
+        if (siteWorkers.length === 0) {
+          html += `
+            <div class="text-center py-12 bg-slate-900/40 rounded-xl border border-slate-800/60">
+              <i class="fa-solid fa-users text-4xl text-slate-600 mb-3"></i>
+              <p class="text-slate-400 font-medium">No workers added for ${this.currentSite}</p>
+              <button onclick="app.openModal('addWorkerModal')" class="mt-3 text-amber-400 text-sm font-semibold hover:underline">+ Add First Worker</button>
             </div>
-        </nav>
-
-        <main class="max-w-7xl mx-auto w-full p-4 md:p-6 flex-grow">
-            
-            <!-- VIEW 1: WORKERS LIST -->
-            <section id="view-workers" class="space-y-6">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-cardBg border border-slate-800 p-4 rounded-2xl shadow-md">
-                    <div>
-                        <h2 class="font-bold text-lg text-slate-100 flex items-center gap-2">
-                            <span>Worker Directory</span>
-                            <span id="workerCountBadge" class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">0 workers</span>
-                        </h2>
-                        <p class="text-xs text-slate-400">Manage labor roster, skilled roles, and daily wages for current site.</p>
-                    </div>
-                    <button onclick="app.openAddWorkerModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition btn-press flex items-center space-x-2">
-                        <i class="fa-solid fa-user-plus"></i>
-                        <span>Add New Worker</span>
-                    </button>
+          `;
+        } else {
+          html += `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+          siteWorkers.forEach(w => {
+            html += `
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 relative hover:border-slate-700 transition">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <h3 class="font-bold text-white text-base">${w.name}</h3>
+                    <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      ${w.role || 'Helper'}
+                    </span>
+                  </div>
+                  <button onclick="app.deleteWorker('${w.id}')" class="text-slate-500 hover:text-red-400 p-1"><i class="fa-solid fa-trash text-sm"></i></button>
                 </div>
-
-                <!-- Worker Cards Grid -->
-                <div id="workerGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Populated dynamically -->
+                <div class="pt-2 border-t border-slate-800/80 flex justify-between items-center text-xs">
+                  <span class="text-slate-400">Default Rate:</span>
+                  <span class="text-amber-400 font-bold text-sm">₹${w.rate || 0}/day</span>
                 </div>
-            </section>
-
-            <!-- VIEW 2: PER-WORKER ATTENDANCE CALENDAR -->
-            <section id="view-calendar" class="hidden space-y-6">
-                <div class="bg-cardBg border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="font-bold text-lg text-slate-100">Per-Worker Individual Calendar</h2>
-                        <p class="text-xs text-slate-400">Select any worker to see their monthly attendance and custom payout logs per date.</p>
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                        <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 flex-grow md:flex-grow-0">
-                            <span class="text-xs text-slate-400">Worker:</span>
-                            <select id="calendarWorkerSelect" onchange="app.renderAttendanceCalendar()" class="bg-transparent text-xs font-bold text-amber-400 focus:outline-none cursor-pointer">
-                                <!-- Populated dynamically -->
-                            </select>
-                        </div>
-
-                        <!-- Month & Year Selector -->
-                        <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
-                            <button onclick="app.changeMonth(-1)" class="text-slate-400 hover:text-slate-100 px-1"><i class="fa-solid fa-chevron-left text-xs"></i></button>
-                            <span id="calendarMonthLabel" class="text-xs font-bold font-mono-custom text-slate-200 min-h-[1rem] px-2">October 2026</span>
-                            <button onclick="app.changeMonth(1)" class="text-slate-400 hover:text-slate-100 px-1"><i class="fa-solid fa-chevron-right text-xs"></i></button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Calendar Grid Container -->
-                <div class="bg-cardBg border border-slate-800 rounded-2xl p-4 sm:p-6 shadow-md">
-                    <!-- Legend -->
-                    <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800/80 text-xs">
-                        <div class="flex items-center space-x-4">
-                            <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><span class="text-slate-300">Present (Full)</span></div>
-                            <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-amber-500"></span><span class="text-slate-300">Half-Day</span></div>
-                            <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-rose-500"></span><span class="text-slate-300">Absent</span></div>
-                            <div class="flex items-center space-x-1.5"><span class="w-3 h-3 rounded-full bg-slate-700"></span><span class="text-slate-400">Not Marked</span></div>
-                        </div>
-                        <div id="workerMonthlySummary" class="text-slate-400 font-medium">
-                            Days Worked: <strong class="text-slate-100">0</strong> | Total Money Earned: <strong class="text-amber-400 font-mono-custom">₹0</strong>
-                        </div>
-                    </div>
-
-                    <!-- Days Header -->
-                    <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                        <div class="text-rose-400">Sun</div>
-                        <div>Mon</div>
-                        <div>Tue</div>
-                        <div>Wed</div>
-                        <div>Thu</div>
-                        <div>Fri</div>
-                        <div>Sat</div>
-                    </div>
-
-                    <!-- Days Grid -->
-                    <div id="calendarDaysGrid" class="grid grid-cols-7 gap-2">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- VIEW 3: LABOUR PAYMENTS (KHATA & ADVANCES) -->
-            <section id="view-labourPayments" class="hidden space-y-6">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-cardBg border border-slate-800 p-4 rounded-2xl shadow-md">
-                    <div>
-                        <h2 class="font-bold text-lg text-slate-100">Labour Advances & Money Given</h2>
-                        <p class="text-xs text-slate-400">Record payments given to workers with exact date, time, payment mode, and notes.</p>
-                    </div>
-                    <button onclick="app.openAddPaymentModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition btn-press flex items-center space-x-2">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>Record Payment Given</span>
-                    </button>
-                </div>
-
-                <div class="bg-cardBg border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-                    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-                        <h3 class="font-bold text-sm text-slate-200">Payment History Ledger</h3>
-                        <span id="paymentCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0 records</span>
-                    </div>
-                    <div id="labourPaymentsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- VIEW 4: CLIENT / MAIN CONTRACTOR INFLOW -->
-            <section id="view-clientReceipts" class="hidden space-y-6">
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-cardBg border border-slate-800 p-4 rounded-2xl shadow-md">
-                    <div>
-                        <h2 class="font-bold text-lg text-slate-100">Client / Main Contractor Inflow</h2>
-                        <p class="text-xs text-slate-400">Track funds received from the upper contractor with date, time, and notes.</p>
-                    </div>
-                    <button onclick="app.openAddClientReceiptModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition btn-press flex items-center space-x-2">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>Record Money Received</span>
-                    </button>
-                </div>
-
-                <div class="bg-cardBg border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-                    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
-                        <h3 class="font-bold text-sm text-slate-200">Main Contractor Inflow Ledger</h3>
-                        <span id="receiptCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0 records</span>
-                    </div>
-                    <div id="clientReceiptsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
-                        <!-- Populated dynamically -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- VIEW 5: REPORTS & TIMEFRAME ANALYTICS -->
-            <section id="view-reports" class="hidden space-y-6">
-                <div class="bg-cardBg border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="font-bold text-lg text-slate-100">Timeframe Financial Reports</h2>
-                        <p class="text-xs text-slate-400">Filter expenses, advances, and earnings by Weekly, Monthly, Yearly, or All Time.</p>
-                    </div>
-
-                    <!-- Filter Selector -->
-                    <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl p-1">
-                        <button onclick="app.setReportFilter('weekly')" id="filter-weekly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Weekly</button>
-                        <button onclick="app.setReportFilter('monthly')" id="filter-monthly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Monthly</button>
-                        <button onclick="app.setReportFilter('yearly')" id="filter-yearly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Yearly</button>
-                        <button onclick="app.setReportFilter('all')" id="filter-all" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 transition">All Time</button>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div class="bg-cardBg border border-slate-800 p-5 rounded-2xl shadow-md">
-                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Total Client Inflow</span>
-                        <span id="reportClientInflow" class="text-2xl font-bold font-mono-custom text-emerald-400">₹0</span>
-                    </div>
-                    <div class="bg-cardBg border border-slate-800 p-5 rounded-2xl shadow-md">
-                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Total Money Given / Earned</span>
-                        <span id="reportLabourPaid" class="text-2xl font-bold font-mono-custom text-amber-400">₹0</span>
-                    </div>
-                    <div class="bg-cardBg border border-slate-800 p-5 rounded-2xl shadow-md">
-                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Net Cash Balance</span>
-                        <span id="reportNetBalance" class="text-2xl font-bold font-mono-custom text-blue-400">₹0</span>
-                    </div>
-                </div>
-
-                <!-- Detailed Worker Wage Breakdown Table -->
-                <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-md">
-                    <h3 class="font-bold text-sm text-slate-200 mb-4">Labour Attendance & Payout Summary</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                <tr>
-                                    <th class="p-3">Worker Name</th>
-                                    <th class="p-3">Role / Skill</th>
-                                    <th class="p-3">Default Rate</th>
-                                    <th class="p-3">Present Days</th>
-                                    <th class="p-3">Half Days</th>
-                                    <th class="p-3">Total Earned</th>
-                                    <th class="p-3">Total Advances Given</th>
-                                </tr>
-                            </thead>
-                            <tbody id="reportWorkerTableBody" class="divide-y divide-slate-800/60 text-slate-300 font-mono-custom">
-                                <!-- Populated dynamically -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- MODALS -->
-
-        <!-- 1. Add Worker Modal -->
-        <div id="workerModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Add New Worker</h3>
-                    <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveWorker(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Worker Full Name</label>
-                        <input type="text" id="newWorkerName" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Ramesh Kumar">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Skilled Role / Trade</label>
-                        <select id="newWorkerRole" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
-                            <option value="Mason / Mistry">Mason / Mistry</option>
-                            <option value="Helper">Helper</option>
-                            <option value="Electrician">Electrician</option>
-                            <option value="Plumber">Plumber</option>
-                            <option value="Carpenter">Carpenter</option>
-                            <option value="Painter">Painter</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Default Base Wage Rate (₹ / Day)</label>
-                        <input type="number" id="newWorkerWage" required min="0" step="any" value="600" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono-custom">
-                        <p class="text-[11px] text-slate-500 mt-1">Note: You can override this rate dynamically on any date.</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes / Remarks</label>
-                        <input type="text" id="newWorkerNotes" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Optional notes">
-                    </div>
-                    <div class="flex items-center justify-end space-x-3 pt-2">
-                        <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Save Worker</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 2. Dynamic Attendance & Custom Payout Modal -->
-        <div id="attendanceModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <div>
-                        <h3 id="attModalTitle" class="font-bold text-base text-slate-100">Mark Attendance & Wage</h3>
-                        <p id="attModalDate" class="text-xs text-amber-400 font-mono-custom">Date: </p>
-                    </div>
-                    <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveAttendance(event)" class="space-y-4">
-                    <input type="hidden" id="attWorkerId">
-                    <input type="hidden" id="attDateStr">
-                    
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Attendance Status</label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <button type="button" onclick="app.selectAttStatus('present')" id="btnStat-present" class="py-3 px-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-bold transition flex flex-col items-center gap-1">
-                                <i class="fa-solid fa-check text-base"></i> Present
-                            </button>
-                            <button type="button" onclick="app.selectAttStatus('half')" id="btnStat-half" class="py-3 px-3 rounded-xl border border-amber-500/30 bg-slate-900 text-amber-400 text-xs font-bold transition flex flex-col items-center gap-1">
-                                <i class="fa-solid fa-star-half-stroke text-base"></i> Half-Day
-                            </button>
-                            <button type="button" onclick="app.selectAttStatus('absent')" id="btnStat-absent" class="py-3 px-3 rounded-xl border border-rose-500/30 bg-slate-900 text-rose-400 text-xs font-bold transition flex flex-col items-center gap-1">
-                                <i class="fa-solid fa-xmark text-base"></i> Absent
-                            </button>
-                        </div>
-                        <input type="hidden" id="attSelectedStatus" value="present">
-                    </div>
-
-                    <!-- Custom Daily Payout Input -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Custom Daily Payout / Wage Amount (₹)</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-amber-400 font-bold">₹</span>
-                            <input type="number" id="attCustomAmount" min="0" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-8 pr-4 text-sm text-slate-100 font-mono-custom focus:outline-none focus:border-amber-500" placeholder="e.g. 700">
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-1">Custom wage for this specific date (leave empty to use default rate).</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes / Overtime / Remarks</label>
-                        <textarea id="attNotes" rows="2" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Add remarks (e.g. Extra 2 hrs overtime or rate changed)"></textarea>
-                    </div>
-
-                    <div class="flex items-center justify-end space-x-3 pt-2">
-                        <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Save Attendance</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 3. Record Labour Payment Modal -->
-        <div id="paymentModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Record Labour Payment / Advance</h3>
-                    <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveLabourPayment(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Select Worker</label>
-                        <select id="payWorkerId" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Amount Given (₹)</label>
-                        <input type="number" id="payAmount" required min="1" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono-custom" placeholder="e.g. 1500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Payment Mode</label>
-                        <select id="payMode" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
-                            <option value="Cash">Cash</option>
-                            <option value="UPI (PhonePe / GPay)">UPI (PhonePe / GPay)</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes / Reason</label>
-                        <input type="text" id="payNotes" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Festival Advance">
-                    </div>
-                    <div class="flex items-center justify-end space-x-3 pt-2">
-                        <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Payment</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 4. Record Client Receipt Modal -->
-        <div id="clientReceiptModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Record Client / Main Contractor Funds</h3>
-                    <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveClientReceipt(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Amount Received (₹)</label>
-                        <input type="number" id="recAmount" required min="1" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono-custom" placeholder="e.g. 50000">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Payment Mode</label>
-                        <select id="recMode" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
-                            <option value="Bank Transfer">Bank Transfer</option>
-                            <option value="UPI">UPI</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Cheque">Cheque</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes / Remarks</label>
-                        <input type="text" id="recNotes" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. 2nd Floor Slab Payment">
-                    </div>
-                    <div class="flex items-center justify-end space-x-3 pt-2">
-                        <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Receipt</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 5. Add New Site Modal -->
-        <div id="siteModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Add New Construction Site</h3>
-                    <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveNewSite(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Site / Project Name</label>
-                        <input type="text" id="newSiteName" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Site C - Commercial Villa">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Location / Address</label>
-                        <input type="text" id="newSiteLocation" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. Sector 62, Noida">
-                    </div>
-                    <div class="flex items-center justify-end space-x-3 pt-2">
-                        <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Create Site</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="border-t border-slate-800/80 py-4 px-4 bg-cardBg/50 text-center text-xs text-slate-500">
-            <p>ThekedarPro &bull; Offline-First Contractor Management &bull; Local Storage & Sync Active</p>
-        </footer>
-    </div>
-
-    <!-- Application JavaScript Engine -->
-    <script>
-        class ContractorApp {
-            constructor() {
-                this.db = null;
-                this.isLoggedIn = false;
-                this.isOfflineSimulated = false;
-                this.currentSite = 'Site A - Civil Work';
-                this.currentTab = 'workers';
-                
-                // Calendar state
-                this.calendarYear = new Date().getFullYear();
-                this.calendarMonth = new Date().getMonth();
-
-                // Report filter state (default to 'all' time)
-                this.reportFilter = 'all';
-
-                // Data Store Tables
-                this.sites = [];
-                this.workers = [];
-                this.attendance = []; // { id, siteId, workerId, dateStr, status, customWage, notes, timestamp }
-                this.labourPayments = []; // { id, siteId, workerId, amount, mode, notes, timestamp }
-                this.clientReceipts = []; // { id, siteId, amount, mode, notes, timestamp }
-
-                this.init();
-            }
-
-            async init() {
-                await this.initIndexedDB();
-                this.checkLoginSession();
-            }
-
-            initIndexedDB() {
-                return new Promise((resolve) => {
-                    const request = indexedDB.open('ThekedarProDB_v2', 1);
-
-                    request.onupgradeneeded = (e) => {
-                        const db = e.target.result;
-                        if (!db.objectStoreNames.contains('sites')) db.createObjectStore('sites', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('workers')) db.createObjectStore('workers', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('attendance')) db.createObjectStore('attendance', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('labourPayments')) db.createObjectStore('labourPayments', { keyPath: 'id' });
-                        if (!db.objectStoreNames.contains('clientReceipts')) db.createObjectStore('clientReceipts', { keyPath: 'id' });
-                    };
-
-                    request.onsuccess = async (e) => {
-                        this.db = e.target.result;
-                        await this.loadAllDataFromDB();
-                        resolve();
-                    };
-
-                    request.onerror = () => resolve();
-                });
-            }
-
-            async loadAllDataFromDB() {
-                if (!this.db) return;
-
-                this.sites = await this.IDBGetAll('sites');
-                if (this.sites.length === 0) {
-                    this.sites = [
-                        { id: 'site_1', name: 'Main Site', location: 'Site 1' }
-                    ];
-                    for (const s of this.sites) await this.IDBPut('sites', s);
-                }
-                this.currentSite = this.sites[0].name;
-
-                this.workers = await this.IDBGetAll('workers');
-                this.attendance = await this.IDBGetAll('attendance');
-                this.labourPayments = await this.IDBGetAll('labourPayments');
-                this.clientReceipts = await this.IDBGetAll('clientReceipts');
-            }
-
-            async clearAllData() {
-                if (confirm('Are you sure you want to clear all sample data and start completely fresh?')) {
-                    const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
-                    for (const storeName of stores) {
-                        const tx = this.db.transaction(storeName, 'readwrite');
-                        tx.objectStore(storeName).clear();
-                    }
-                    this.sites = [{ id: 'site_1', name: 'Main Site', location: '' }];
-                    await this.IDBPut('sites', this.sites[0]);
-                    this.currentSite = 'Main Site';
-                    this.workers = [];
-                    this.attendance = [];
-                    this.labourPayments = [];
-                    this.clientReceipts = [];
-                    this.refreshUI();
-                }
-            }
-
-            IDBGetAll(storeName) {
-                return new Promise((resolve) => {
-                    const tx = this.db.transaction(storeName, 'readonly');
-                    const store = tx.objectStore(storeName);
-                    const req = store.getAll();
-                    req.onsuccess = () => resolve(req.result || []);
-                    req.onerror = () => resolve([]);
-                });
-            }
-
-            IDBPut(storeName, item) {
-                return new Promise((resolve) => {
-                    const tx = this.db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    store.put(item);
-                    tx.oncomplete = () => resolve(true);
-                    tx.onerror = () => resolve(false);
-                });
-            }
-
-            IDBDelete(storeName, id) {
-                return new Promise((resolve) => {
-                    const tx = this.db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    store.delete(id);
-                    tx.oncomplete = () => resolve(true);
-                    tx.onerror = () => resolve(false);
-                });
-            }
-
-            // --- AUTH ---
-            checkLoginSession() {
-                const logged = localStorage.getItem('thekedar_logged');
-                if (logged === 'true') {
-                    this.loginSuccess();
-                } else {
-                    document.getElementById('loginScreen').classList.remove('hidden');
-                    document.getElementById('mainApp').classList.add('hidden');
-                }
-            }
-
-            handleLogin(e) {
-                e.preventDefault();
-                const pass = document.getElementById('loginPass').value;
-                if (pass === '1234' || pass.length >= 4) {
-                    localStorage.setItem('thekedar_logged', 'true');
-                    this.loginSuccess();
-                } else {
-                    alert('Incorrect password or PIN!');
-                }
-            }
-
-            loginSuccess() {
-                this.isLoggedIn = true;
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                document.getElementById('mainApp').classList.add('flex');
-                this.refreshUI();
-            }
-
-            logout() {
-                localStorage.removeItem('thekedar_logged');
-                this.isLoggedIn = false;
-                document.getElementById('loginScreen').classList.remove('hidden');
-                document.getElementById('mainApp').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('flex');
-            }
-
-            simulateNetworkToggle() {
-                this.isOfflineSimulated = !this.isOfflineSimulated;
-                const badge = document.getElementById('statusBadge');
-                const dot = document.getElementById('statusDot');
-                const text = document.getElementById('statusText');
-
-                if (this.isOfflineSimulated) {
-                    badge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
-                    dot.className = "w-2 h-2 rounded-full bg-rose-500";
-                    text.innerText = "Offline (Local)";
-                } else {
-                    badge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
-                    dot.className = "w-2 h-2 rounded-full bg-emerald-500";
-                    text.innerText = "Online";
-                }
-            }
-
-            switchSite(siteName) {
-                this.currentSite = siteName;
-                this.refreshUI();
-            }
-
-            openNewSiteModal() {
-                document.getElementById('siteModal').classList.remove('hidden');
-                document.getElementById('siteModal').classList.add('flex');
-            }
-
-            async saveNewSite(e) {
-                e.preventDefault();
-                const name = document.getElementById('newSiteName').value.trim();
-                const location = document.getElementById('newSiteLocation').value.trim();
-
-                const newSite = { id: 'site_' + Date.now(), name, location };
-                this.sites.push(newSite);
-                await this.IDBPut('sites', newSite);
-                this.currentSite = name;
-                this.closeModals();
-                this.refreshUI();
-            }
-
-            switchTab(tabId) {
-                this.currentTab = tabId;
-                document.querySelectorAll('.tab-btn').forEach(btn => {
-                    btn.className = "tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60";
-                });
-                const activeBtn = document.getElementById('tab-' + tabId);
-                if (activeBtn) {
-                    activeBtn.className = "tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap bg-amber-500 text-slate-950 shadow-md";
-                }
-
-                ['workers', 'calendar', 'labourPayments', 'clientReceipts', 'reports'].forEach(id => {
-                    const el = document.getElementById('view-' + id);
-                    if (el) el.classList.add('hidden');
-                });
-                const viewEl = document.getElementById('view-' + tabId);
-                if (viewEl) viewEl.classList.remove('hidden');
-                
-                this.refreshUI();
-            }
-
-            refreshUI() {
-                const siteSelect = document.getElementById('siteSelector');
-                if (siteSelect) {
-                    siteSelect.innerHTML = this.sites.map(s => `<option value="${s.name}" ${s.name === this.currentSite ? 'selected' : ''}>${s.name}</option>`).join('');
-                }
-
-                if (this.currentTab === 'workers') this.renderWorkersView();
-                if (this.currentTab === 'calendar') this.renderCalendarViewDropdowns();
-                if (this.currentTab === 'labourPayments') this.renderLabourPayments();
-                if (this.currentTab === 'clientReceipts') this.renderClientReceipts();
-                if (this.currentTab === 'reports') this.renderReports();
-            }
-
-            // --- WORKERS DIRECTORY VIEW ---
-            renderWorkersView() {
-                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
-                
-                const countBadge = document.getElementById('workerCountBadge');
-                if (countBadge) countBadge.innerText = `${siteWorkers.length} workers`;
-
-                const grid = document.getElementById('workerGrid');
-                if (!grid) return;
-
-                if (siteWorkers.length === 0) {
-                    grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-500 bg-cardBg border border-slate-800/80 rounded-2xl">No workers added for ${this.currentSite}</div>`;
-                    return;
-                }
-
-                const todayStr = new Date().toISOString().split('T')[0];
-
-                grid.innerHTML = siteWorkers.map(w => {
-                    const todayAtt = this.attendance.find(a => a.workerId === w.id && a.dateStr === todayStr);
-                    let statusText = 'Not Marked';
-                    let badgeClass = 'bg-slate-800 text-slate-400 border-slate-700';
-                    let displayWage = todayAtt && todayAtt.customWage ? todayAtt.customWage : w.wage;
-
-                    if (todayAtt) {
-                        if (todayAtt.status === 'present') { statusText = 'Present'; badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'; }
-                        if (todayAtt.status === 'half') { statusText = 'Half-Day'; badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30'; }
-                        if (todayAtt.status === 'absent') { statusText = 'Absent'; badgeClass = 'bg-rose-500/20 text-rose-400 border-rose-500/30'; }
-                    }
-
-                    return `
-                        <div class="bg-cardBg border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md hover:border-slate-700 transition">
-                            <div class="flex items-start justify-between">
-                                <div>
-                                    <h3 class="font-bold text-sm text-slate-100">${w.name}</h3>
-                                    <span class="text-xs text-amber-400 font-medium">${w.role}</span>
-                                </div>
-                                <span class="text-[10px] px-2.5 py-0.5 rounded-full border font-semibold ${badgeClass}">${statusText}</span>
-                            </div>
-
-                            <div class="text-xs text-slate-400 flex justify-between items-center font-mono-custom pt-1 border-t border-slate-800/60">
-                                <span>Base Wage Rate:</span>
-                                <strong class="text-slate-200">₹${w.wage}/day</strong>
-                            </div>
-
-                            ${w.notes ? `<p class="text-[11px] text-slate-500 italic truncate"><i class="fa-solid fa-note-sticky mr-1"></i>${w.notes}</p>` : ''}
-
-                            <div class="pt-2 border-t border-slate-800 flex items-center justify-between gap-2">
-                                <button onclick="app.openAttendanceModal('${w.id}', '${todayStr}')" class="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold transition btn-press flex items-center justify-center gap-1.5">
-                                    <i class="fa-solid fa-calendar-check text-xs"></i>
-                                    <span>Mark Today</span>
-                                </button>
-                                <button onclick="app.jumpToCalendarForWorker('${w.id}')" class="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-amber-400 rounded-xl transition" title="View Individual Calendar">
-                                    <i class="fa-solid fa-calendar-days text-xs"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            // --- ATTENDANCE CALENDAR ---
-            renderCalendarViewDropdowns() {
-                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
-                const select = document.getElementById('calendarWorkerSelect');
-                
-                const currentSelected = select.value;
-                select.innerHTML = siteWorkers.map(w => `<option value="${w.id}">${w.name} (${w.role})</option>`).join('');
-                
-                if (currentSelected && siteWorkers.some(w => w.id === currentSelected)) {
-                    select.value = currentSelected;
-                }
-                this.renderAttendanceCalendar();
-            }
-
-            changeMonth(dir) {
-                this.calendarMonth += dir;
-                if (this.calendarMonth > 11) {
-                    this.calendarMonth = 0;
-                    this.calendarYear++;
-                } else if (this.calendarMonth < 0) {
-                    this.calendarMonth = 11;
-                    this.calendarYear--;
-                }
-                this.renderAttendanceCalendar();
-            }
-
-            renderAttendanceCalendar() {
-                const workerId = document.getElementById('calendarWorkerSelect').value;
-                const worker = this.workers.find(w => w.id === workerId);
-                
-                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                document.getElementById('calendarMonthLabel').innerText = `${monthNames[this.calendarMonth]} ${this.calendarYear}`;
-
-                const grid = document.getElementById('calendarDaysGrid');
-                if (!worker) {
-                    grid.innerHTML = `<div class="col-span-7 py-12 text-center text-slate-500">No worker selected</div>`;
-                    return;
-                }
-
-                const firstDayIndex = new Date(this.calendarYear, this.calendarMonth, 1).getDay();
-                const totalDaysInMonth = new Date(this.calendarYear, this.calendarMonth + 1, 0).getDate();
-
-                let html = '';
-                for (let i = 0; i < firstDayIndex; i++) {
-                    html += `<div class="h-20 bg-slate-950/20 rounded-xl opacity-20"></div>`;
-                }
-
-                let totalDaysWorked = 0;
-                let totalWagesEarned = 0;
-
-                for (let day = 1; day <= totalDaysInMonth; day++) {
-                    const mStr = String(this.calendarMonth + 1).padStart(2, '0');
-                    const dStr = String(day).padStart(2, '0');
-                    const dateStr = `${this.calendarYear}-${mStr}-${dStr}`;
-
-                    const attRecord = this.attendance.find(a => a.workerId === workerId && a.dateStr === dateStr);
-                    
-                    let statusColor = 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700';
-                    let dotColor = 'bg-slate-700';
-                    let statusBadgeText = '';
-                    let dailyWage = worker.wage;
-
-                    if (attRecord) {
-                        if (attRecord.customWage) dailyWage = attRecord.customWage;
-
-                        if (attRecord.status === 'present') {
-                            statusColor = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:border-emerald-500/50';
-                            dotColor = 'bg-emerald-500';
-                            statusBadgeText = 'Present';
-                            totalDaysWorked += 1;
-                            totalWagesEarned += dailyWage;
-                        } else if (attRecord.status === 'half') {
-                            statusColor = 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:border-amber-500/50';
-                            dotColor = 'bg-amber-500';
-                            statusBadgeText = 'Half-Day';
-                            totalDaysWorked += 0.5;
-                            totalWagesEarned += (dailyWage * 0.5);
-                        } else if (attRecord.status === 'absent') {
-                            statusColor = 'bg-rose-500/10 border-rose-500/30 text-rose-300 hover:border-rose-500/50';
-                            dotColor = 'bg-rose-500';
-                            statusBadgeText = 'Absent';
-                        }
-                    }
-
-                    html += `
-                        <div onclick="app.openAttendanceModal('${worker.id}', '${dateStr}')" 
-                             class="h-24 p-2 rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
-                            <div class="flex items-center justify-between">
-                                <span class="font-mono-custom font-bold text-xs">${day}</span>
-                                <span class="w-2 h-2 rounded-full ${dotColor}"></span>
-                            </div>
-                            <div>
-                                <span class="text-[10px] font-semibold block truncate">${statusBadgeText || 'Tap to mark'}</span>
-                                ${attRecord ? `<span class="text-[9px] font-mono-custom text-amber-400 block">₹${dailyWage}</span>` : ''}
-                            </div>
-                        </div>
-                    `;
-                }
-
-                grid.innerHTML = html;
-                document.getElementById('workerMonthlySummary').innerHTML = `
-                    Days Worked: <strong class="text-slate-100">${totalDaysWorked}</strong> | Total Earned: <strong class="text-amber-400 font-mono-custom">₹${totalWagesEarned}</strong>
-                `;
-            }
-
-            openAttendanceModal(workerId, dateStr) {
-                const worker = this.workers.find(w => w.id === workerId);
-                const attRecord = this.attendance.find(a => a.workerId === workerId && a.dateStr === dateStr);
-
-                document.getElementById('attWorkerId').value = workerId;
-                document.getElementById('attDateStr').value = dateStr;
-                document.getElementById('attModalTitle').innerText = `Mark Attendance: ${worker.name}`;
-                document.getElementById('attModalDate').innerText = `Date: ${dateStr}`;
-
-                const existingStatus = attRecord ? attRecord.status : 'present';
-                this.selectAttStatus(existingStatus);
-
-                document.getElementById('attCustomAmount').value = attRecord && attRecord.customWage ? attRecord.customWage : worker.wage;
-                document.getElementById('attNotes').value = attRecord ? attRecord.notes || '' : '';
-
-                document.getElementById('attendanceModal').classList.remove('hidden');
-                document.getElementById('attendanceModal').classList.add('flex');
-            }
-
-            selectAttStatus(status) {
-                document.getElementById('attSelectedStatus').value = status;
-                ['present', 'half', 'absent'].forEach(st => {
-                    const btn = document.getElementById('btnStat-' + st);
-                    if (st === status) {
-                        if (st === 'present') btn.className = "py-3 px-3 rounded-xl border border-emerald-500/50 bg-emerald-500/20 text-emerald-300 text-xs font-bold transition flex flex-col items-center gap-1 shadow-md";
-                        if (st === 'half') btn.className = "py-3 px-3 rounded-xl border border-amber-500/50 bg-amber-500/20 text-amber-300 text-xs font-bold transition flex flex-col items-center gap-1 shadow-md";
-                        if (st === 'absent') btn.className = "py-3 px-3 rounded-xl border border-rose-500/50 bg-rose-500/20 text-rose-300 text-xs font-bold transition flex flex-col items-center gap-1 shadow-md";
-                    } else {
-                        btn.className = "py-3 px-3 rounded-xl border border-slate-700/50 bg-slate-900 text-slate-400 text-xs font-semibold transition flex flex-col items-center gap-1";
-                    }
-                });
-            }
-
-            async saveAttendance(e) {
-                e.preventDefault();
-                const workerId = document.getElementById('attWorkerId').value;
-                const dateStr = document.getElementById('attDateStr').value;
-                const status = document.getElementById('attSelectedStatus').value;
-                const customWageVal = document.getElementById('attCustomAmount').value;
-                const customWage = customWageVal ? parseFloat(customWageVal) : null;
-                const notes = document.getElementById('attNotes').value.trim();
-
-                this.attendance = this.attendance.filter(a => !(a.workerId === workerId && a.dateStr === dateStr));
-
-                const newAtt = {
-                    id: 'att_' + workerId + '_' + dateStr,
-                    siteId: this.currentSite,
-                    workerId,
-                    dateStr,
-                    status,
-                    customWage,
-                    notes,
-                    timestamp: Date.now()
-                };
-
-                this.attendance.push(newAtt);
-                await this.IDBPut('attendance', newAtt);
-                this.closeModals();
-                this.refreshUI();
-            }
-
-            // --- LABOUR PAYMENTS ---
-            renderLabourPayments() {
-                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
-                const workerIds = siteWorkers.map(w => w.id);
-                const payments = this.labourPayments.filter(p => workerIds.includes(p.workerId)).sort((a,b) => b.timestamp - a.timestamp);
-
-                document.getElementById('paymentCountBadge').innerText = `${payments.length} records`;
-
-                const list = document.getElementById('labourPaymentsList');
-                if (payments.length === 0) {
-                    list.innerHTML = `<div class="py-12 text-center text-slate-500">No labour payments recorded for ${this.currentSite}</div>`;
-                    return;
-                }
-
-                list.innerHTML = payments.map(p => {
-                    const worker = this.workers.find(w => w.id === p.workerId) || { name: 'Unknown Worker' };
-                    const dateObj = new Date(p.timestamp);
-                    const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    return `
-                        <div class="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">${worker.name}</h4>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">${p.mode}</span>
-                                </div>
-                                <p class="text-xs text-slate-400 font-mono-custom">${timeStr}</p>
-                                ${p.notes ? `<p class="text-xs text-slate-400 italic"><i class="fa-solid fa-note-sticky mr-1"></i>${p.notes}</p>` : ''}
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <span class="text-base font-bold font-mono-custom text-amber-400">₹${p.amount}</span>
-                                <button onclick="app.deleteLabourPayment('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            openAddPaymentModal() {
-                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
-                const select = document.getElementById('payWorkerId');
-                select.innerHTML = siteWorkers.map(w => `<option value="${w.id}">${w.name} (${w.role})</option>`).join('');
-
-                document.getElementById('paymentModal').classList.remove('hidden');
-                document.getElementById('paymentModal').classList.add('flex');
-            }
-
-            async saveLabourPayment(e) {
-                e.preventDefault();
-                const workerId = document.getElementById('payWorkerId').value;
-                const amount = parseFloat(document.getElementById('payAmount').value);
-                const mode = document.getElementById('payMode').value;
-                const notes = document.getElementById('payNotes').value.trim();
-
-                const record = {
-                    id: 'pay_' + Date.now(),
-                    siteId: this.currentSite,
-                    workerId,
-                    amount,
-                    mode,
-                    notes,
-                    timestamp: Date.now()
-                };
-
-                this.labourPayments.push(record);
-                await this.IDBPut('labourPayments', record);
-                this.closeModals();
-                this.refreshUI();
-            }
-
-            async deleteLabourPayment(id) {
-                if (confirm('Delete this payment record?')) {
-                    this.labourPayments = this.labourPayments.filter(p => p.id !== id);
-                    await this.IDBDelete('labourPayments', id);
-                    this.refreshUI();
-                }
-            }
-
-            // --- CLIENT RECEIPTS ---
-            renderClientReceipts() {
-                const receipts = this.clientReceipts.filter(r => r.siteId === this.currentSite).sort((a,b) => b.timestamp - a.timestamp);
-                document.getElementById('receiptCountBadge').innerText = `${receipts.length} records`;
-
-                const list = document.getElementById('clientReceiptsList');
-                if (receipts.length === 0) {
-                    list.innerHTML = `<div class="py-12 text-center text-slate-500">No client inflows recorded for ${this.currentSite}</div>`;
-                    return;
-                }
-
-                list.innerHTML = receipts.map(r => {
-                    const dateObj = new Date(r.timestamp);
-                    const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    return `
-                        <div class="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">Received from Main Contractor</h4>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">${r.mode}</span>
-                                </div>
-                                <p class="text-xs text-slate-400 font-mono-custom">${timeStr}</p>
-                                ${r.notes ? `<p class="text-xs text-slate-400 italic"><i class="fa-solid fa-note-sticky mr-1"></i>${r.notes}</p>` : ''}
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <span class="text-base font-bold font-mono-custom text-emerald-400">+₹${r.amount}</span>
-                                <button onclick="app.deleteClientReceipt('${r.id}')" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            openAddClientReceiptModal() {
-                document.getElementById('clientReceiptModal').classList.remove('hidden');
-                document.getElementById('clientReceiptModal').classList.add('flex');
-            }
-
-            async saveClientReceipt(e) {
-                e.preventDefault();
-                const amount = parseFloat(document.getElementById('recAmount').value);
-                const mode = document.getElementById('recMode').value;
-                const notes = document.getElementById('recNotes').value.trim();
-
-                const record = {
-                    id: 'rec_' + Date.now(),
-                    siteId: this.currentSite,
-                    amount,
-                    mode,
-                    notes,
-                    timestamp: Date.now()
-                };
-
-                this.clientReceipts.push(record);
-                await this.IDBPut('clientReceipts', record);
-                this.closeModals();
-                this.refreshUI();
-            }
-
-            async deleteClientReceipt(id) {
-                if (confirm('Delete this client receipt?')) {
-                    this.clientReceipts = this.clientReceipts.filter(r => r.id !== id);
-                    await this.IDBDelete('clientReceipts', id);
-                    this.refreshUI();
-                }
-            }
-
-            // --- REPORTS ---
-            setReportFilter(filter) {
-                this.reportFilter = filter;
-                ['weekly', 'monthly', 'yearly', 'all'].forEach(f => {
-                    const btn = document.getElementById('filter-' + f);
-                    btn.className = f === filter ? "filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 transition" : "filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition";
-                });
-                this.renderReports();
-            }
-
-            renderReports() {
-                const now = Date.now();
-                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
-                const workerIds = siteWorkers.map(w => w.id);
-
-                let cutoffTime = 0;
-                if (this.reportFilter === 'weekly') cutoffTime = now - (7 * 24 * 60 * 60 * 1000);
-                if (this.reportFilter === 'monthly') cutoffTime = now - (30 * 24 * 60 * 60 * 1000);
-                if (this.reportFilter === 'yearly') cutoffTime = now - (365 * 24 * 60 * 60 * 1000);
-
-                const filterFn = (item) => item.siteId === this.currentSite && (this.reportFilter === 'all' || item.timestamp >= cutoffTime);
-
-                const filteredReceipts = this.clientReceipts.filter(filterFn);
-                const filteredPayments = this.labourPayments.filter(p => workerIds.includes(p.workerId) && filterFn(p));
-
-                const totalInflow = filteredReceipts.reduce((sum, r) => sum + r.amount, 0);
-                
-                // Calculate total wage earned from marked attendance
-                let totalAttendanceEarned = 0;
-                siteWorkers.forEach(w => {
-                    const wAtt = this.attendance.filter(a => a.workerId === w.id && (this.reportFilter === 'all' || a.timestamp >= cutoffTime));
-                    wAtt.forEach(a => {
-                        const wage = (a.customWage !== null && a.customWage !== undefined) ? a.customWage : w.wage;
-                        if (a.status === 'present') totalAttendanceEarned += wage;
-                        if (a.status === 'half') totalAttendanceEarned += (wage * 0.5);
-                    });
-                });
-
-                const totalAdvancesGiven = filteredPayments.reduce((sum, p) => sum + p.amount, 0);
-                const totalLabourPaidOrEarned = totalAttendanceEarned + totalAdvancesGiven;
-
-                document.getElementById('reportClientInflow').innerText = `₹${totalInflow.toLocaleString()}`;
-                document.getElementById('reportLabourPaid').innerText = `₹${totalLabourPaidOrEarned.toLocaleString()}`;
-                document.getElementById('reportNetBalance').innerText = `₹${(totalInflow - totalLabourPaidOrEarned).toLocaleString()}`;
-
-                const tbody = document.getElementById('reportWorkerTableBody');
-                tbody.innerHTML = siteWorkers.map(w => {
-                    const wAtt = this.attendance.filter(a => a.workerId === w.id && (this.reportFilter === 'all' || a.timestamp >= cutoffTime));
-                    const present = wAtt.filter(a => a.status === 'present').length;
-                    const half = wAtt.filter(a => a.status === 'half').length;
-
-                    let totalEarned = 0;
-                    wAtt.forEach(a => {
-                        const wage = (a.customWage !== null && a.customWage !== undefined) ? a.customWage : w.wage;
-                        if (a.status === 'present') totalEarned += wage;
-                        if (a.status === 'half') totalEarned += (wage * 0.5);
-                    });
-
-                    const wPayments = filteredPayments.filter(p => p.workerId === w.id);
-                    const totalAdvances = wPayments.reduce((sum, p) => sum + p.amount, 0);
-
-                    return `
-                        <tr class="hover:bg-slate-900/50">
-                            <td class="p-3 font-semibold text-slate-100">${w.name}</td>
-                            <td class="p-3 text-slate-400">${w.role}</td>
-                            <td class="p-3 text-amber-400">₹${w.wage}</td>
-                            <td class="p-3">${present}</td>
-                            <td class="p-3">${half}</td>
-                            <td class="p-3 font-bold text-slate-100">₹${totalEarned.toLocaleString()}</td>
-                            <td class="p-3 text-amber-400">₹${totalAdvances.toLocaleString()}</td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-
-            openAddWorkerModal() {
-                document.getElementById('workerModal').classList.remove('hidden');
-                document.getElementById('workerModal').classList.add('flex');
-            }
-
-            async saveWorker(e) {
-                e.preventDefault();
-                const name = document.getElementById('newWorkerName').value.trim();
-                const role = document.getElementById('newWorkerRole').value;
-                const wage = parseFloat(document.getElementById('newWorkerWage').value);
-                const notes = document.getElementById('newWorkerNotes').value.trim();
-
-                const newWorker = { id: 'w_' + Date.now(), siteId: this.currentSite, name, role, wage, notes };
-                this.workers.push(newWorker);
-                await this.IDBPut('workers', newWorker);
-                this.closeModals();
-                this.refreshUI();
-            }
-
-            jumpToCalendarForWorker(workerId) {
-                this.switchTab('calendar');
-                document.getElementById('calendarWorkerSelect').value = workerId;
-                this.renderAttendanceCalendar();
-            }
-
-            closeModals() {
-                ['workerModal', 'attendanceModal', 'paymentModal', 'clientReceiptModal', 'siteModal'].forEach(id => {
-                    const el = document.getElementById(id);
-                    el.classList.add('hidden');
-                    el.classList.remove('flex');
-                });
-            }
+              </div>
+            `;
+          });
+          html += `</div>`;
+        }
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      saveWorker(e) {
+        e.preventDefault();
+        const name = document.getElementById('workerName').value;
+        const role = document.getElementById('workerRole').value;
+        const rate = parseFloat(document.getElementById('workerRate').value);
+
+        const workerData = { name, role, rate, site: this.currentSite };
+
+        if (this.user) {
+          db.collection('users').doc(this.user.uid).collection('workers').add(workerData);
+        } else {
+          this.workers.push({ id: Date.now().toString(), ...workerData });
+          this.saveLocalData();
+          this.renderCurrentView();
         }
 
-        window.onload = () => {
-            window.app = new ContractorApp();
+        document.getElementById('workerName').value = '';
+        this.closeModal('addWorkerModal');
+      }
+
+      deleteWorker(id) {
+        if (!confirm('Are you sure you want to delete this worker?')) return;
+        if (this.user) {
+          db.collection('users').doc(this.user.uid).collection('workers').doc(id).delete();
+        } else {
+          this.workers = this.workers.filter(w => w.id !== id);
+          this.saveLocalData();
+          this.renderCurrentView();
+        }
+      }
+
+      // ATTENDANCE CALENDAR VIEW
+      renderAttendanceView(container) {
+        const siteWorkers = this.workers.filter(w => !w.site || w.site === this.currentSite);
+        const today = new Date().toISOString().split('T')[0];
+
+        let html = `
+          <div class="space-y-4">
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h2 class="text-lg font-bold text-white">Daily Attendance & Variable Wage Entry</h2>
+                <p class="text-xs text-slate-400">Mark daily attendance and custom wage payout per worker</p>
+              </div>
+            </div>
+        `;
+
+        if (siteWorkers.length === 0) {
+          html += `<div class="text-center py-8 text-slate-400">Please add workers first.</div>`;
+        } else {
+          html += `<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 uppercase text-xs">
+                  <tr>
+                    <th class="p-3.5">Worker</th>
+                    <th class="p-3.5">Role</th>
+                    <th class="p-3.5">Status Today</th>
+                    <th class="p-3.5">Today Payout (₹)</th>
+                    <th class="p-3.5">Note</th>
+                    <th class="p-3.5">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/80">`;
+
+          siteWorkers.forEach(w => {
+            const att = this.attendance.find(a => a.workerId === w.id && a.date === today) || {};
+            html += `
+              <tr class="hover:bg-slate-800/40">
+                <td class="p-3.5 font-bold text-white">${w.name}</td>
+                <td class="p-3.5"><span class="text-xs text-amber-400">${w.role}</span></td>
+                <td class="p-3.5">
+                  <select id="att-status-${w.id}" class="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white">
+                    <option value="Present" ${att.status === 'Present' ? 'selected' : ''}>Full Day</option>
+                    <option value="Half-Day" ${att.status === 'Half-Day' ? 'selected' : ''}>Half Day</option>
+                    <option value="Absent" ${att.status === 'Absent' ? 'selected' : ''}>Absent</option>
+                  </select>
+                </td>
+                <td class="p-3.5">
+                  <input type="number" id="att-payout-${w.id}" value="${att.payout !== undefined ? att.payout : w.rate}" step="any" min="0" class="w-24 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-amber-400 font-bold">
+                </td>
+                <td class="p-3.5">
+                  <input type="text" id="att-note-${w.id}" value="${att.note || ''}" placeholder="Remarks" class="w-32 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300">
+                </td>
+                <td class="p-3.5">
+                  <button onclick="app.saveAttendance('${w.id}')" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded text-xs">
+                    Save
+                  </button>
+                </td>
+              </tr>
+            `;
+          });
+
+          html += `</tbody></table></div></div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      saveAttendance(workerId) {
+        const today = new Date().toISOString().split('T')[0];
+        const status = document.getElementById(`att-status-${workerId}`).value;
+        const payout = parseFloat(document.getElementById(`att-payout-${workerId}`).value) || 0;
+        const note = document.getElementById(`att-note-${workerId}`).value;
+
+        const attData = {
+          workerId,
+          date: today,
+          status,
+          payout,
+          note,
+          site: this.currentSite
         };
-    </script>
+
+        const existing = this.attendance.find(a => a.workerId === workerId && a.date === today);
+
+        if (this.user) {
+          if (existing && existing.id) {
+            db.collection('users').doc(this.user.uid).collection('attendance').doc(existing.id).set(attData);
+          } else {
+            db.collection('users').doc(this.user.uid).collection('attendance').add(attData);
+          }
+        } else {
+          if (existing) {
+            Object.assign(existing, attData);
+          } else {
+            this.attendance.push({ id: Date.now().toString(), ...attData });
+          }
+          this.saveLocalData();
+          this.renderCurrentView();
+        }
+      }
+
+      // PAYOUTS VIEW
+      renderPayoutsView(container) {
+        const siteWorkers = this.workers.filter(w => !w.site || w.site === this.currentSite);
+        const sitePayouts = this.payouts.filter(p => !p.site || p.site === this.currentSite);
+
+        let html = `
+          <div class="space-y-4">
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <h2 class="text-lg font-bold text-white">Labour Advance & Wage Payout Log</h2>
+                <p class="text-xs text-slate-400">Record cash / UPI payouts given to workers</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+              <h3 class="font-bold text-amber-400 text-sm">Record New Payout</h3>
+              <form onsubmit="app.savePayout(event)" class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                <div>
+                  <label class="block text-slate-400 mb-1">Select Worker</label>
+                  <select id="payWorker" required class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                    ${siteWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Amount (₹)</label>
+                  <input type="number" id="payAmount" required min="1" step="any" placeholder="1000" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Payment Mode</label>
+                  <select id="payMode" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI / PhonePe</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Note / Remark</label>
+                  <input type="text" id="payNote" placeholder="Festival Advance" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                </div>
+                <div class="flex items-end">
+                  <button type="submit" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded">
+                    Record Payout
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 uppercase">
+                  <tr>
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Worker</th>
+                    <th class="p-3">Amount</th>
+                    <th class="p-3">Mode</th>
+                    <th class="p-3">Note</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">`;
+
+        sitePayouts.forEach(p => {
+          const w = this.workers.find(wk => wk.id === p.workerId) || { name: 'Unknown' };
+          html += `
+            <tr>
+              <td class="p-3">${p.date}</td>
+              <td class="p-3 font-bold text-white">${w.name}</td>
+              <td class="p-3 font-bold text-amber-400">₹${p.amount}</td>
+              <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">${p.mode}</span></td>
+              <td class="p-3 text-slate-400">${p.note || '-'}</td>
+            </tr>
+          `;
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+      }
+
+      savePayout(e) {
+        e.preventDefault();
+        const workerId = document.getElementById('payWorker').value;
+        const amount = parseFloat(document.getElementById('payAmount').value);
+        const mode = document.getElementById('payMode').value;
+        const note = document.getElementById('payNote').value;
+        const date = new Date().toISOString().split('T')[0];
+
+        const payData = { workerId, amount, mode, note, date, site: this.currentSite };
+
+        if (this.user) {
+          db.collection('users').doc(this.user.uid).collection('payouts').add(payData);
+        } else {
+          this.payouts.push({ id: Date.now().toString(), ...payData });
+          this.saveLocalData();
+          this.renderCurrentView();
+        }
+
+        document.getElementById('payAmount').value = '';
+        document.getElementById('payNote').value = '';
+      }
+
+      // CLIENT INFLOW VIEW
+      renderInflowView(container) {
+        const siteInflows = this.inflows.filter(i => !i.site || i.site === this.currentSite);
+
+        let html = `
+          <div class="space-y-4">
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+              <div>
+                <h2 class="text-lg font-bold text-white">Client Payment Receipts</h2>
+                <p class="text-xs text-slate-400">Track incoming payments from main contractor / owner</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+              <h3 class="font-bold text-emerald-400 text-sm">Record Incoming Payment</h3>
+              <form onsubmit="app.saveInflow(event)" class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label class="block text-slate-400 mb-1">Amount Received (₹)</label>
+                  <input type="number" id="recAmount" required min="1" step="any" placeholder="50000" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Payment Mode</label>
+                  <select id="recMode" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Cash">Cash</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Note / Stage</label>
+                  <input type="text" id="recNote" placeholder="Slab Completion" class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-2 text-white">
+                </div>
+                <div class="flex items-end">
+                  <button type="submit" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-2 rounded">
+                    Record Receipt
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 uppercase">
+                  <tr>
+                    <th class="p-3">Date</th>
+                    <th class="p-3">Amount</th>
+                    <th class="p-3">Mode</th>
+                    <th class="p-3">Note</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">`;
+
+        siteInflows.forEach(i => {
+          html += `
+            <tr>
+              <td class="p-3">${i.date}</td>
+              <td class="p-3 font-bold text-emerald-400">₹${i.amount}</td>
+              <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-800 border border-slate-700">${i.mode}</span></td>
+              <td class="p-3 text-slate-400">${i.note || '-'}</td>
+            </tr>
+          `;
+        });
+
+        html += `</tbody></table></div></div>`;
+        container.innerHTML = html;
+      }
+
+      saveInflow(e) {
+        e.preventDefault();
+        const amount = parseFloat(document.getElementById('recAmount').value);
+        const mode = document.getElementById('recMode').value;
+        const note = document.getElementById('recNote').value;
+        const date = new Date().toISOString().split('T')[0];
+
+        const inflowData = { amount, mode, note, date, site: this.currentSite };
+
+        if (this.user) {
+          db.collection('users').doc(this.user.uid).collection('inflows').add(inflowData);
+        } else {
+          this.inflows.push({ id: Date.now().toString(), ...inflowData });
+          this.saveLocalData();
+          this.renderCurrentView();
+        }
+
+        document.getElementById('recAmount').value = '';
+        document.getElementById('recNote').value = '';
+      }
+
+      // REPORTS VIEW
+      renderReportsView(container) {
+        const siteWorkers = this.workers.filter(w => !w.site || w.site === this.currentSite);
+        const sitePayouts = this.payouts.filter(p => !p.site || p.site === this.currentSite);
+        const siteInflows = this.inflows.filter(i => !i.site || i.site === this.currentSite);
+        const siteAttendance = this.attendance.filter(a => !a.site || a.site === this.currentSite);
+
+        const totalGiven = sitePayouts.reduce((sum, p) => sum + (p.amount || 0), 0) + siteAttendance.reduce((sum, a) => sum + (a.payout || 0), 0);
+        const totalInflow = siteInflows.reduce((sum, i) => sum + (i.amount || 0), 0);
+
+        let html = `
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <span class="text-xs text-slate-400 uppercase font-semibold">Total Client Inflow</span>
+                <p class="text-2xl font-bold text-emerald-400 mt-1">₹${totalInflow.toLocaleString()}</p>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <span class="text-xs text-slate-400 uppercase font-semibold">Total Money Given to Labour</span>
+                <p class="text-2xl font-bold text-amber-400 mt-1">₹${totalGiven.toLocaleString()}</p>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl">
+                <span class="text-xs text-slate-400 uppercase font-semibold">Net Cash Balance</span>
+                <p class="text-2xl font-bold text-blue-400 mt-1">₹${(totalInflow - totalGiven).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <h3 class="font-bold text-white mb-3 text-sm">Labour Attendance & Payout Summary</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-slate-950 text-slate-400 uppercase">
+                    <tr>
+                      <th class="p-3">Worker Name</th>
+                      <th class="p-3">Role / Skill</th>
+                      <th class="p-3">Default Rate</th>
+                      <th class="p-3">Present Days</th>
+                      <th class="p-3">Half Days</th>
+                      <th class="p-3">Total Earned</th>
+                      <th class="p-3">Total Advances Given</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800">`;
+
+        siteWorkers.forEach(w => {
+          const wAtt = siteAttendance.filter(a => a.workerId === w.id);
+          const presents = wAtt.filter(a => a.status === 'Present').length;
+          const halfs = wAtt.filter(a => a.status === 'Half-Day').length;
+          const earned = wAtt.reduce((sum, a) => sum + (a.payout || 0), 0);
+          const advances = sitePayouts.filter(p => p.workerId === w.id).reduce((sum, p) => sum + (p.amount || 0), 0);
+
+          html += `
+            <tr>
+              <td class="p-3 font-bold text-white">${w.name}</td>
+              <td class="p-3"><span class="text-amber-400">${w.role}</span></td>
+              <td class="p-3">₹${w.rate}</td>
+              <td class="p-3">${presents}</td>
+              <td class="p-3">${halfs}</td>
+              <td class="p-3 font-bold text-emerald-400">₹${earned.toLocaleString()}</td>
+              <td class="p-3 font-bold text-amber-400">₹${advances.toLocaleString()}</td>
+            </tr>
+          `;
+        });
+
+        html += `</tbody></table></div></div></div>`;
+        container.innerHTML = html;
+      }
+
+      openModal(id) {
+        document.getElementById(id).classList.remove('hidden');
+      }
+
+      closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+      }
+    }
+
+    const app = new ThekedarApp();
+  </script>
 </body>
 </html>
