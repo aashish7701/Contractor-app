@@ -68,31 +68,44 @@
 
             <form onsubmit="app.handleLogin(event)" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Site Supervisor / Phone</label>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-user"></i></span>
-                        <input type="text" id="loginUser" required value="supervisor" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter username">
+                        <input type="email" id="loginUser" required autocomplete="username" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="you@example.com">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Security Password / PIN</label>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-lock"></i></span>
-                        <input type="password" id="loginPass" required value="1234" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter PIN (e.g. 1234)">
+                        <input type="password" id="loginPass" required minlength="6" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter password (minimum 6 characters)">
                     </div>
-                    <p class="text-[11px] text-slate-500 mt-1">Default Demo PIN: <code class="text-amber-400 font-mono-custom">1234</code></p>
+                    <p id="loginHint" class="text-[11px] text-slate-500 mt-1">Use your Firebase account. New here? Choose Create Account below.</p>
+                    <button id="forgotPasswordButton" type="button" onclick="app.handleForgotPassword()" class="text-xs text-amber-400 hover:text-amber-300 mt-2 underline underline-offset-2">Forgot password?</button>
                 </div>
 
-                <button type="submit" class="w-full mt-2 py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition btn-press flex items-center justify-center space-x-2">
-                    <span>Secure Login</span>
+                <div id="confirmPasswordWrap" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Re-enter Password</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500"><i class="fa-solid fa-lock"></i></span>
+                        <input type="password" id="confirmPassword" minlength="6" autocomplete="new-password" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Re-enter password">
+                    </div>
+                </div>
+
+                <button id="authSubmitButton" type="submit" class="w-full mt-2 py-3.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition btn-press flex items-center justify-center space-x-2">
+                    <span id="authSubmitLabel">Secure Login</span>
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
+            <button id="authModeButton" type="button" onclick="app.toggleAuthMode()" class="w-full mt-3 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold rounded-xl transition">
+                Create Account
+            </button>
+            <p id="authMessage" role="status" aria-live="polite" class="text-xs text-center text-rose-300 mt-3"></p>
 
             <div class="mt-6 pt-4 border-t border-slate-800/80 text-center">
                 <span class="text-xs text-slate-500 flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> Offline-First Local Encrypted Storage
+                    <i class="fa-solid fa-shield-halved text-emerald-400"></i> Firebase Email & Password Authentication
                 </span>
             </div>
         </div>
@@ -682,25 +695,144 @@
             }
 
             // --- AUTH ---
-            checkLoginSession() {
-                const logged = localStorage.getItem('thekedar_logged');
-                if (logged === 'true') {
-                    this.loginSuccess();
-                } else {
+            async checkLoginSession() {
+                // Restore the session only when Firebase confirms an authenticated user.
+                try {
+                    const { auth } = await window.firebaseAuthReady;
+                    if (auth.currentUser) {
+                        this.loginSuccess();
+                    } else {
+                        document.getElementById('loginScreen').classList.remove('hidden');
+                        document.getElementById('mainApp').classList.add('hidden');
+                    }
+                } catch (error) {
                     document.getElementById('loginScreen').classList.remove('hidden');
                     document.getElementById('mainApp').classList.add('hidden');
                 }
             }
 
-            handleLogin(e) {
-                e.preventDefault();
-                const pass = document.getElementById('loginPass').value;
-                if (pass === '1234' || pass.length >= 4) {
-                    localStorage.setItem('thekedar_logged', 'true');
-                    this.loginSuccess();
+            toggleAuthMode() {
+                const isRegistering = document.getElementById('confirmPasswordWrap').classList.contains('hidden');
+                const confirmWrap = document.getElementById('confirmPasswordWrap');
+                const confirmInput = document.getElementById('confirmPassword');
+                const submitLabel = document.getElementById('authSubmitLabel');
+                const modeButton = document.getElementById('authModeButton');
+                const hint = document.getElementById('loginHint');
+                const passwordInput = document.getElementById('loginPass');
+                const forgotButton = document.getElementById('forgotPasswordButton');
+                const message = document.getElementById('authMessage');
+                message.textContent = '';
+                if (isRegistering) {
+                    forgotButton.classList.add('hidden');
+                    confirmWrap.classList.remove('hidden');
+                    confirmInput.required = true;
+                    confirmInput.value = '';
+                    passwordInput.autocomplete = 'new-password';
+                    submitLabel.textContent = 'Create Account';
+                    modeButton.textContent = 'Back to Login';
+                    hint.textContent = 'Create a password, then enter it again to confirm.';
                 } else {
-                    alert('Incorrect password or PIN!');
+                    forgotButton.classList.remove('hidden');
+                    confirmWrap.classList.add('hidden');
+                    confirmInput.required = false;
+                    confirmInput.value = '';
+                    passwordInput.autocomplete = 'current-password';
+                    submitLabel.textContent = 'Secure Login';
+                    modeButton.textContent = 'Create Account';
+                    hint.textContent = 'Use your Firebase account. New here? Choose Create Account below.';
                 }
+            }
+
+            async handleLogin(e) {
+                e.preventDefault();
+                const email = document.getElementById('loginUser').value.trim();
+                const password = document.getElementById('loginPass').value;
+                const message = document.getElementById('authMessage');
+                message.textContent = '';
+                const isRegistering = !document.getElementById('confirmPasswordWrap').classList.contains('hidden');
+                if (isRegistering) {
+                    await this.handleSignUp();
+                    return;
+                }
+                try {
+                    if (!window.firebaseAuthReady) throw new Error('Firebase is still starting. Please try again.');
+                    const { auth, signInWithEmailAndPassword } = await window.firebaseAuthReady;
+                    await signInWithEmailAndPassword(auth, email, password);
+                    // The Firebase auth-state listener will reveal the app.
+                } catch (error) {
+                    message.textContent = this.authErrorMessage(error);
+                }
+            }
+
+            async handleSignUp() {
+                const email = document.getElementById('loginUser').value.trim();
+                const password = document.getElementById('loginPass').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                const message = document.getElementById('authMessage');
+                message.textContent = '';
+                if (!email) {
+                    message.textContent = 'Enter your email address first.';
+                    document.getElementById('loginUser').focus();
+                    return;
+                }
+                if (!password || password.length < 6) {
+                    message.textContent = 'Enter a password with at least 6 characters.';
+                    document.getElementById('loginPass').focus();
+                    return;
+                }
+                if (password !== confirmPassword) {
+                    message.textContent = 'Passwords do not match. Please re-enter the same password.';
+                    document.getElementById('confirmPassword').focus();
+                    return;
+                }
+                try {
+                    if (!window.firebaseAuthReady) throw new Error('Firebase is still starting. Please try again.');
+                    const { auth, createUserWithEmailAndPassword } = await window.firebaseAuthReady;
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    // Creating an account signs the user in; the auth-state listener opens the app.
+                } catch (error) {
+                    message.textContent = this.authErrorMessage(error);
+                }
+            }
+
+            async handleForgotPassword() {
+                const emailInput = document.getElementById('loginUser');
+                const email = emailInput.value.trim();
+                const message = document.getElementById('authMessage');
+                message.classList.remove('text-emerald-300');
+                message.classList.add('text-rose-300');
+                message.textContent = '';
+                if (!email) {
+                    message.textContent = 'Enter your email address first, then click Forgot password?';
+                    emailInput.focus();
+                    return;
+                }
+                try {
+                    if (!window.firebaseAuthReady) throw new Error('Firebase is still starting. Please try again.');
+                    const { auth, sendPasswordResetEmail } = await window.firebaseAuthReady;
+                    await sendPasswordResetEmail(auth, email);
+                    message.classList.remove('text-rose-300');
+                    message.classList.add('text-emerald-300');
+                    message.textContent = 'If an account exists for this email, a password-reset link has been sent. Check your inbox and spam folder.';
+                } catch (error) {
+                    message.textContent = this.authErrorMessage(error);
+                }
+            }
+
+            authErrorMessage(error) {
+                const messages = {
+                    'auth/invalid-credential': 'Email or password is incorrect.',
+                    'auth/user-not-found': 'No account found. Use Create Account first.',
+                    'auth/wrong-password': 'Email or password is incorrect.',
+                    'auth/email-already-in-use': 'An account with this email already exists. Please log in.',
+                    'auth/weak-password': 'Choose a password with at least 6 characters.',
+                    'auth/invalid-email': 'Enter a valid email address.',
+                    'auth/operation-not-allowed': 'Enable Email/Password sign-in in Firebase Console → Authentication → Sign-in method.',
+                    'auth/too-many-requests': 'Too many attempts. Please wait and try again.',
+                    'auth/invalid-action-code': 'This password-reset link is invalid or has expired. Request a new one.',
+                    'auth/network-request-failed': 'Network error. Check your internet connection and try again.'
+                };
+                return messages[error?.code] || error?.message || 'Authentication failed. Check your Firebase setup.';
             }
 
             loginSuccess() {
@@ -711,8 +843,13 @@
                 this.refreshUI();
             }
 
-            logout() {
-                localStorage.removeItem('thekedar_logged');
+            async logout() {
+                try {
+                    const { auth, signOut } = await window.firebaseAuthReady;
+                    await signOut(auth);
+                } catch (error) {
+                    console.error('Firebase sign-out failed:', error);
+                }
                 this.isLoggedIn = false;
                 document.getElementById('loginScreen').classList.remove('hidden');
                 document.getElementById('mainApp').classList.add('hidden');
@@ -1277,5 +1414,52 @@
             window.app = new ContractorApp();
         };
     </script>
+
+    <!-- Firebase Authentication setup -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            sendPasswordResetEmail,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0PKlTMYZCwiL45fhZxD1z6-ymHbrDEAY",
+            authDomain: "contractor-4b526.firebaseapp.com",
+            projectId: "contractor-4b526",
+            storageBucket: "contractor-4b526.firebasestorage.app",
+            messagingSenderId: "421030593627",
+            appId: "1:421030593627:web:e228518339a946706a2b7e",
+            measurementId: "G-NY0BHYE5ZS"
+        };
+
+        window.firebaseAuthReady = (async () => {
+            const firebaseApp = initializeApp(firebaseConfig);
+            const auth = getAuth(firebaseApp);
+            onAuthStateChanged(auth, (user) => {
+                const loginScreen = document.getElementById('loginScreen');
+                const mainApp = document.getElementById('mainApp');
+                if (user) {
+                    if (window.app) window.app.loginSuccess();
+                } else {
+                    loginScreen.classList.remove('hidden');
+                    mainApp.classList.add('hidden');
+                    mainApp.classList.remove('flex');
+                    if (window.app) window.app.isLoggedIn = false;
+                }
+            });
+            return { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut };
+        })().catch((error) => {
+            console.error('Firebase initialization failed:', error);
+            const message = document.getElementById('authMessage');
+            if (message) message.textContent = 'Could not connect to Firebase. Check your internet and Firebase configuration.';
+            throw error;
+        });
+    </script>
+
 </body>
 </html>
