@@ -299,6 +299,7 @@
                         <input type="password" id="loginPass" required minlength="6" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter password (minimum 6 characters)">
                     </div>
                     <p id="loginHint" class="text-[11px] text-slate-500 mt-1">Use your Firebase account. New here? Choose Create Account below.</p>
+                    <p class="text-[11px] text-slate-500 mt-2">For offline use, sign in while connected and reload once to cache the app. Changes are saved on this device and sync when internet returns.</p>
                     <button id="forgotPasswordButton" type="button" onclick="app.handleForgotPassword()" class="text-xs text-amber-400 hover:text-amber-300 mt-2 underline underline-offset-2">Forgot password?</button>
                 </div>
 
@@ -896,6 +897,9 @@
                     <button type="button" onclick="app.exportDataBackup('pdf')" class="w-full mb-3 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-file-pdf text-amber-400"></i> Download PDF backup
                     </button>
+                    <button type="button" onclick="app.exportDataBackup('excel')" class="w-full mb-3 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-excel text-emerald-400"></i> Download Excel backup
+                    </button>
                     <button type="button" onclick="app.openDeletionManager()" class="text-xs text-slate-500 hover:text-rose-400 underline underline-offset-2 transition">
                         Manage deletions…
                     </button>
@@ -937,6 +941,12 @@
                 this.applyingCloudData = false;
                 this.isLoggedIn = false;
                 this.isOfflineSimulated = false;
+                this.hasInternetConnection = navigator.onLine;
+                this.connectivityCheckRunning = false;
+                this.syncQueuePromise = null;
+                this.syncQueueRequested = false;
+                this.syncRetryTimer = null;
+                this.syncRetryDelay = 5000;
                 this.currentSite = 'Site A - Civil Work';
                 this.currentTab = 'workers';
                 
@@ -982,12 +992,23 @@
 
             async init() {
                 await this.initIndexedDB();
+                window.addEventListener('online', () => {
+                    this.checkInternetConnection();
+                });
+                window.addEventListener('offline', () => {
+                    this.hasInternetConnection = false;
+                    this.updateNetworkStatus();
+                    if (this.isLoggedIn) this.setCloudStatus('offline - saved on device', true);
+                });
+                this.updateNetworkStatus();
+                this.checkInternetConnection();
+                setInterval(() => this.checkInternetConnection(), 15000);
                 this.checkLoginSession();
             }
 
             initIndexedDB() {
                 return new Promise((resolve) => {
-                    const request = indexedDB.open('ThekedarProDB_v2', 1);
+                    const request = indexedDB.open('ThekedarProDB_v2', 2);
 
                     request.onupgradeneeded = (e) => {
                         const db = e.target.result;
@@ -996,6 +1017,7 @@
                         if (!db.objectStoreNames.contains('attendance')) db.createObjectStore('attendance', { keyPath: 'id' });
                         if (!db.objectStoreNames.contains('labourPayments')) db.createObjectStore('labourPayments', { keyPath: 'id' });
                         if (!db.objectStoreNames.contains('clientReceipts')) db.createObjectStore('clientReceipts', { keyPath: 'id' });
+                        if (!db.objectStoreNames.contains('syncQueue')) db.createObjectStore('syncQueue', { keyPath: 'id' });
                     };
 
                     request.onsuccess = async (e) => {
@@ -1030,8 +1052,8 @@
                 if (confirm('Are you sure you want to clear all sample data and start completely fresh?')) {
                     const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
                     for (const storeName of stores) {
-                        const tx = this.db.transaction(storeName, 'readwrite');
-                        tx.objectStore(storeName).clear();
+                        const records = await this.IDBGetAll(storeName);
+                        for (const record of records) await this.IDBDelete(storeName, record.id);
                     }
                     this.sites = [{ id: 'site_1', name: 'Main Site', location: '' }];
                     await this.IDBPut('sites', this.sites[0]);
@@ -1056,11 +1078,27 @@
 
             IDBPut(storeName, item) {
                 return new Promise((resolve) => {
-                    const tx = this.db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    store.put(item);
+                    if (!this.db) {
+                        resolve(false);
+                        return;
+                    }
+                    const shouldQueue = !this.applyingCloudData;
+                    const storeNames = shouldQueue ? [storeName, 'syncQueue'] : [storeName];
+                    const tx = this.db.transaction(storeNames, 'readwrite');
+                    tx.objectStore(storeName).put(item);
+                    if (shouldQueue) {
+                        tx.objectStore('syncQueue').put({
+                            id: `${storeName}:${String(item.id)}`,
+                            storeName,
+                            recordId: String(item.id),
+                            operation: 'upsert',
+                            item,
+                            userId: this.getSyncOwnerId(),
+                            updatedAt: Date.now()
+                        });
+                    }
                     tx.oncomplete = () => {
-                        if (!this.applyingCloudData) this.syncRecordToCloud(storeName, item);
+                        if (shouldQueue && this.isLoggedIn) this.processSyncQueue();
                         resolve(true);
                     };
                     tx.onerror = () => resolve(false);
@@ -1069,31 +1107,71 @@
 
             IDBDelete(storeName, id) {
                 return new Promise((resolve) => {
-                    const tx = this.db.transaction(storeName, 'readwrite');
-                    const store = tx.objectStore(storeName);
-                    store.delete(id);
-                    tx.oncomplete = async () => {
-                        if (!this.applyingCloudData) await this.deleteRecordFromCloud(storeName, id);
+                    if (!this.db) {
+                        resolve(false);
+                        return;
+                    }
+                    const shouldQueue = !this.applyingCloudData;
+                    const storeNames = shouldQueue ? [storeName, 'syncQueue'] : [storeName];
+                    const tx = this.db.transaction(storeNames, 'readwrite');
+                    tx.objectStore(storeName).delete(id);
+                    if (shouldQueue) {
+                        tx.objectStore('syncQueue').put({
+                            id: `${storeName}:${String(id)}`,
+                            storeName,
+                            recordId: String(id),
+                            operation: 'delete',
+                            userId: this.getSyncOwnerId(),
+                            updatedAt: Date.now()
+                        });
+                    }
+                    tx.oncomplete = () => {
+                        if (shouldQueue && this.isLoggedIn) this.processSyncQueue();
                         resolve(true);
                     };
                     tx.onerror = () => resolve(false);
                 });
             }
 
+            getSyncOwnerId() {
+                return window.firebaseCurrentUserId || localStorage.getItem('thekedarpro-user-id') || null;
+            }
+
+            async removeSyncQueueItem(id, updatedAt) {
+                if (!this.db) return;
+                const tx = this.db.transaction('syncQueue', 'readwrite');
+                const store = tx.objectStore('syncQueue');
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    if (request.result?.updatedAt === updatedAt) store.delete(id);
+                };
+                return new Promise((resolve, reject) => {
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error || new Error('Could not update the pending sync queue.'));
+                });
+            }
+
             // --- AUTH ---
             async checkLoginSession() {
-                // Restore the session only when Firebase confirms an authenticated user.
                 try {
                     const { auth } = await window.firebaseAuthReady;
                     if (auth.currentUser) {
+                        localStorage.setItem('thekedarpro-user-id', auth.currentUser.uid);
+                        window.firebaseCurrentUserId = auth.currentUser.uid;
                         this.loginSuccess();
+                    } else if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) {
+                        this.loginOffline();
                     } else {
+                        localStorage.removeItem('thekedarpro-user-id');
                         document.getElementById('loginScreen').classList.remove('hidden');
                         document.getElementById('mainApp').classList.add('hidden');
                     }
                 } catch (error) {
-                    document.getElementById('loginScreen').classList.remove('hidden');
-                    document.getElementById('mainApp').classList.add('hidden');
+                    if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) this.loginOffline();
+                    else {
+                        document.getElementById('loginScreen').classList.remove('hidden');
+                        document.getElementById('mainApp').classList.add('hidden');
+                    }
                 }
             }
 
@@ -1244,6 +1322,60 @@
                 await this.startCloudSync();
             }
 
+            loginOffline() {
+                this.isLoggedIn = true;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('flex');
+                this.refreshUI();
+                this.updateNetworkStatus();
+                this.setCloudStatus('offline - saved on device', true);
+            }
+
+            updateNetworkStatus() {
+                const isOnline = navigator.onLine && this.hasInternetConnection && !this.isOfflineSimulated;
+                const badge = document.getElementById('statusBadge');
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                if (!badge || !dot || !text) return;
+                badge.className = isOnline
+                    ? 'flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                    : 'flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20';
+                dot.className = isOnline ? 'w-2 h-2 rounded-full bg-emerald-500' : 'w-2 h-2 rounded-full bg-rose-500';
+                text.innerText = isOnline ? 'Online' : 'Offline (Local)';
+            }
+
+            async checkInternetConnection() {
+                if (this.connectivityCheckRunning) return;
+                if (!navigator.onLine) {
+                    this.hasInternetConnection = false;
+                    this.updateNetworkStatus();
+                    return;
+                }
+
+                this.connectivityCheckRunning = true;
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                try {
+                    await fetch('https://www.gstatic.com/generate_204', {
+                        mode: 'no-cors',
+                        cache: 'no-store',
+                        signal: controller.signal
+                    });
+                    const wasOffline = !this.hasInternetConnection;
+                    this.hasInternetConnection = true;
+                    this.updateNetworkStatus();
+                    if (wasOffline && this.isLoggedIn) this.startCloudSync();
+                } catch {
+                    this.hasInternetConnection = false;
+                    this.updateNetworkStatus();
+                    if (this.isLoggedIn) this.setCloudStatus('offline - saved on device', true);
+                } finally {
+                    clearTimeout(timeout);
+                    this.connectivityCheckRunning = false;
+                }
+            }
+
             setCloudStatus(text, failed = false) {
                 const el = document.getElementById('cloudSyncStatus');
                 if (!el) return;
@@ -1251,12 +1383,35 @@
                 el.className = `text-xs ${failed ? 'text-rose-400' : 'text-emerald-400'}`;
             }
 
+            scheduleSyncRetry() {
+                if (this.syncRetryTimer || !this.isLoggedIn || !navigator.onLine || this.isOfflineSimulated) return;
+                this.syncRetryTimer = setTimeout(() => {
+                    this.syncRetryTimer = null;
+                    this.syncRetryDelay = Math.min(this.syncRetryDelay * 2, 60000);
+                    if (this.cloudUnsubscribers.length) this.processSyncQueue();
+                    else this.startCloudSync();
+                }, this.syncRetryDelay);
+            }
+
+            clearSyncRetry() {
+                if (this.syncRetryTimer) clearTimeout(this.syncRetryTimer);
+                this.syncRetryTimer = null;
+                this.syncRetryDelay = 5000;
+            }
+
             async startCloudSync() {
+                if (!navigator.onLine || this.isOfflineSimulated) {
+                    this.setCloudStatus('offline - saved on device', true);
+                    return;
+                }
                 try {
                     const { db, collection, getDocs, setDoc, doc, onSnapshot, deleteDoc } = await window.firebaseDataReady;
                     const { auth } = await window.firebaseAuthReady;
                     const user = auth.currentUser;
                     if (!user) return;
+                    localStorage.setItem('thekedarpro-user-id', user.uid);
+                    window.firebaseCurrentUserId = user.uid;
+                    if (!await this.processSyncQueue()) return;
                     this.cloudUnsubscribers.forEach(unsubscribe => unsubscribe());
                     this.cloudUnsubscribers = [];
                     const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
@@ -1278,27 +1433,52 @@
                         }, error => { console.error('Cloud sync listener failed:', error); this.setCloudStatus('sync error', true); }));
                     }
                     this.setCloudStatus('synced');
+                    this.clearSyncRetry();
                 } catch (error) {
                     console.error('Cloud sync failed:', error);
                     this.setCloudStatus(error?.code === 'permission-denied' ? 'check Firestore rules' : 'unavailable', true);
+                    if (error?.code !== 'permission-denied') this.scheduleSyncRetry();
                 }
             }
 
-            async syncRecordToCloud(storeName, item) {
-                try {
-                    const { db, doc, setDoc } = await window.firebaseDataReady;
-                    const { auth } = await window.firebaseAuthReady;
-                    if (auth.currentUser) await setDoc(doc(db, 'users', auth.currentUser.uid, storeName, String(item.id)), item, { merge: true });
-                    this.setCloudStatus('synced');
-                } catch (error) { console.error('Cloud write failed:', error); this.setCloudStatus('pending', true); }
-            }
-
-            async deleteRecordFromCloud(storeName, id) {
-                try {
-                    const { db, doc, deleteDoc } = await window.firebaseDataReady;
-                    const { auth } = await window.firebaseAuthReady;
-                    if (auth.currentUser) await deleteDoc(doc(db, 'users', auth.currentUser.uid, storeName, String(id)));
-                } catch (error) { console.error('Cloud delete failed:', error); this.setCloudStatus('pending', true); }
+            async processSyncQueue() {
+                if (!this.isLoggedIn || !navigator.onLine || this.isOfflineSimulated) return false;
+                if (this.syncQueuePromise) {
+                    this.syncQueueRequested = true;
+                    return this.syncQueuePromise;
+                }
+                this.syncQueuePromise = (async () => {
+                    try {
+                        const { db, doc, setDoc, deleteDoc } = await window.firebaseDataReady;
+                        const { auth } = await window.firebaseAuthReady;
+                        if (!auth.currentUser) return false;
+                        const userId = auth.currentUser.uid;
+                        const pending = (await this.IDBGetAll('syncQueue'))
+                            .filter(operation => !operation.userId || operation.userId === userId)
+                            .sort((first, second) => first.updatedAt - second.updatedAt);
+                        for (const operation of pending) {
+                            const reference = doc(db, 'users', userId, operation.storeName, operation.recordId);
+                            if (operation.operation === 'delete') await deleteDoc(reference);
+                            else await setDoc(reference, operation.item, { merge: true });
+                            await this.removeSyncQueueItem(operation.id, operation.updatedAt);
+                        }
+                        this.setCloudStatus('synced');
+                        this.clearSyncRetry();
+                        return true;
+                    } catch (error) {
+                        console.error('Pending cloud sync failed:', error);
+                        this.setCloudStatus('pending', true);
+                        if (error?.code !== 'permission-denied') this.scheduleSyncRetry();
+                        return false;
+                    } finally {
+                        this.syncQueuePromise = null;
+                        if (this.syncQueueRequested) {
+                            this.syncQueueRequested = false;
+                            this.processSyncQueue();
+                        }
+                    }
+                })();
+                return this.syncQueuePromise;
             }
 
             async logout() {
@@ -1308,6 +1488,9 @@
                 } catch (error) {
                     console.error('Firebase sign-out failed:', error);
                 }
+                localStorage.removeItem('thekedarpro-user-id');
+                window.firebaseCurrentUserId = null;
+                this.clearSyncRetry();
                 this.isLoggedIn = false;
                 document.getElementById('loginScreen').classList.remove('hidden');
                 document.getElementById('mainApp').classList.add('hidden');
@@ -1316,19 +1499,9 @@
 
             simulateNetworkToggle() {
                 this.isOfflineSimulated = !this.isOfflineSimulated;
-                const badge = document.getElementById('statusBadge');
-                const dot = document.getElementById('statusDot');
-                const text = document.getElementById('statusText');
-
-                if (this.isOfflineSimulated) {
-                    badge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
-                    dot.className = "w-2 h-2 rounded-full bg-rose-500";
-                    text.innerText = "Offline (Local)";
-                } else {
-                    badge.className = "flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
-                    dot.className = "w-2 h-2 rounded-full bg-emerald-500";
-                    text.innerText = "Online";
-                }
+                this.updateNetworkStatus();
+                if (this.isOfflineSimulated) this.setCloudStatus('offline - saved on device', true);
+                else if (this.isLoggedIn) this.startCloudSync();
             }
 
             switchSite(siteName) {
@@ -1369,11 +1542,13 @@
                 };
                 const isText = format === 'text';
                 const isPdf = format === 'pdf';
+                const isExcel = format === 'excel';
                 const contents = isPdf
                     ? this.createTextPdf(this.formatBackupAsText(backup))
+                    : isExcel ? this.createExcelXml(backup)
                     : isText ? this.formatBackupAsText(backup) : JSON.stringify(backup, null, 2);
-                const extension = isPdf ? 'pdf' : isText ? 'txt' : 'json';
-                const mimeType = isPdf ? 'application/pdf' : isText ? 'text/plain;charset=utf-8' : 'application/json';
+                const extension = isPdf ? 'pdf' : isExcel ? 'xls' : isText ? 'txt' : 'json';
+                const mimeType = isPdf ? 'application/pdf' : isExcel ? 'application/vnd.ms-excel;charset=utf-8' : isText ? 'text/plain;charset=utf-8' : 'application/json';
                 const file = new Blob([contents], { type: mimeType });
                 const url = URL.createObjectURL(file);
                 const link = document.createElement('a');
@@ -1383,6 +1558,29 @@
                 link.click();
                 link.remove();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+
+            createExcelXml(backup) {
+                const escapeXml = value => String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&apos;');
+                const cell = value => {
+                    const type = typeof value === 'number' && Number.isFinite(value) ? 'Number' : 'String';
+                    const text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    return `<Cell><Data ss:Type="${type}">${escapeXml(text)}</Data></Cell>`;
+                };
+                const worksheets = Object.entries(backup.data).map(([name, records]) => {
+                    const columns = [...new Set(records.flatMap(record => Object.keys(record)))];
+                    const headers = columns.length ? columns : ['No records'];
+                    const rows = [headers, ...records.map(record => columns.map(column => record[column] ?? ''))]
+                        .map(row => `<Row>${row.map(cell).join('')}</Row>`).join('');
+                    const sheetName = name.replace(/[^A-Za-z0-9_]/g, '').slice(0, 31) || 'Data';
+                    return `<Worksheet ss:Name="${escapeXml(sheetName)}"><Table>${rows}</Table></Worksheet>`;
+                }).join('');
+                return `<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><DocumentProperties xmlns="urn:schemas-microsoft-com:office:office"><Title>${escapeXml(backup.app)} backup</Title><Created>${escapeXml(backup.exportedAt)}</Created></DocumentProperties>${worksheets}</Workbook>`;
             }
 
             formatBackupAsText(backup) {
@@ -2458,8 +2656,14 @@
                 const loginScreen = document.getElementById('loginScreen');
                 const mainApp = document.getElementById('mainApp');
                 if (user) {
+                    localStorage.setItem('thekedarpro-user-id', user.uid);
+                    window.firebaseCurrentUserId = user.uid;
                     if (window.app) window.app.loginSuccess();
+                } else if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) {
+                    if (window.app) window.app.loginOffline();
                 } else {
+                    localStorage.removeItem('thekedarpro-user-id');
+                    window.firebaseCurrentUserId = null;
                     loginScreen.classList.remove('hidden');
                     mainApp.classList.add('hidden');
                     mainApp.classList.remove('flex');
@@ -2477,7 +2681,7 @@
 
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Shortcut setup unavailable:', error)));
+            window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Offline support unavailable:', error)));
         }
     </script>
 </body>
