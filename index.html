@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ThekedarPro - Contractor Attendance & Expense Tracker</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
+    <meta name="theme-color" content="#0b0f19">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -106,19 +109,44 @@
         body.light-theme ::-webkit-scrollbar-thumb { background: #cbd3e0; }
 
         @media (max-width: 640px) {
+            header {
+                padding: 0.55rem 0.75rem !important;
+            }
             header .max-w-7xl {
-                align-items: flex-start;
-                gap: 0.75rem;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: center;
+                gap: 0.55rem;
             }
             header .max-w-7xl > div:first-child {
-                flex: 1 1 100%;
+                grid-column: 1 / -1;
+                min-width: 0;
+                gap: 0.55rem;
             }
             header .max-w-7xl > div:nth-child(2) {
-                flex: 1 1 auto;
                 min-width: 0;
+                width: fit-content;
+                max-width: 58vw;
+                padding: 0.2rem 0.45rem;
             }
             header .max-w-7xl > div:last-child {
-                gap: 0.4rem;
+                justify-self: end;
+                gap: 0.3rem;
+            }
+            header .max-w-7xl > div:first-child > div:first-child {
+                width: 2.25rem;
+                height: 2.25rem;
+                flex: 0 0 2.25rem;
+                border-radius: 0.7rem;
+            }
+            header .max-w-7xl > div:first-child > div:last-child > p {
+                display: none;
+            }
+            #statusBadge {
+                padding: 0.3rem 0.5rem;
+            }
+            header .max-w-7xl > div:last-child > button {
+                padding: 0.55rem;
             }
             #cloudSyncStatus {
                 display: none;
@@ -145,6 +173,35 @@
             main {
                 padding: 0.75rem !important;
             }
+            #view-workers {
+                gap: 0.75rem;
+            }
+            #view-workers > div:first-child {
+                padding: 0.8rem;
+                gap: 0.65rem;
+            }
+            #view-workers > div:first-child h2 {
+                font-size: 1rem;
+            }
+            #view-workers > div:first-child p {
+                font-size: 0.68rem;
+                line-height: 1.35;
+                margin-top: 0.2rem;
+            }
+            #view-workers > div:first-child button {
+                padding: 0.6rem 0.75rem;
+                white-space: nowrap;
+            }
+            #workerGrid {
+                gap: 0.75rem;
+            }
+            #workerGrid > div {
+                padding: 0.85rem;
+                gap: 0.6rem;
+            }
+            #workerGrid > div > div:last-child {
+                padding-top: 0.55rem;
+            }
             #calendarDaysGrid,
             #view-calendar .grid.grid-cols-7 {
                 gap: 0.25rem;
@@ -153,14 +210,28 @@
                 min-width: 0;
             }
             #calendarDaysGrid > div[onclick] {
-                padding: 0.35rem;
-                border-radius: 0.65rem;
+                height: 44px !important;
+                min-height: 44px;
+                padding: 0.2rem !important;
+                border-radius: 0.45rem;
+            }
+            #calendarDaysGrid > div:not([onclick]) {
+                height: 44px;
             }
             #calendarDaysGrid > div[onclick] span {
-                font-size: 0.62rem;
+                font-size: 0.55rem;
             }
             #calendarDaysGrid > div[onclick] span:last-child {
-                font-size: 0.55rem;
+                font-size: 0.45rem;
+            }
+            #calendarDaysGrid > div[onclick] > div:first-child > span:last-child {
+                display: none;
+            }
+            #calendarDaysGrid .calendar-hint {
+                display: none;
+            }
+            #calendarDaysGrid > div[onclick] > div:last-child {
+                line-height: 1.1;
             }
             #view-calendar > div:nth-child(2) {
                 padding: 0.75rem;
@@ -267,7 +338,7 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <h2 class="font-bold text-base leading-tight">ThekedarPro</h2>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Offline Active</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">by Aashish</span>
                         </div>
                         <p class="text-[11px] text-slate-400">Dynamic Wage & Site Expense Manager</p>
                     </div>
@@ -813,6 +884,15 @@
                     </div>
                 </form>
                 <div class="mt-5 pt-4 border-t border-slate-800/80">
+                    <button type="button" onclick="app.exportDataBackup()" class="w-full mb-3 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download text-amber-400"></i> Download JSON backup
+                    </button>
+                    <button type="button" onclick="app.exportDataBackup('text')" class="w-full mb-3 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-lines text-amber-400"></i> Download text backup (Notepad)
+                    </button>
+                    <button type="button" onclick="app.exportDataBackup('pdf')" class="w-full mb-3 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-file-pdf text-amber-400"></i> Download PDF backup
+                    </button>
                     <button type="button" onclick="app.openDeletionManager()" class="text-xs text-slate-500 hover:text-rose-400 underline underline-offset-2 transition">
                         Manage deletions…
                     </button>
@@ -842,9 +922,6 @@
         </div>
 
         <!-- Footer -->
-        <footer class="border-t border-slate-800/80 py-4 px-4 bg-cardBg/50 text-center text-xs text-slate-500">
-            <p>ThekedarPro &bull; Offline-First Contractor Management &bull; Local Storage & Sync Active</p>
-        </footer>
     </div>
 
     <!-- Application JavaScript Engine -->
@@ -1274,6 +1351,135 @@
                 this.refreshUI();
             }
 
+            exportDataBackup(format = 'json') {
+                const backup = {
+                    app: 'ThekedarPro',
+                    formatVersion: 1,
+                    exportedAt: new Date().toISOString(),
+                    data: {
+                        sites: this.sites,
+                        workers: this.workers,
+                        attendance: this.attendance,
+                        labourPayments: this.labourPayments,
+                        clientReceipts: this.clientReceipts
+                    }
+                };
+                const isText = format === 'text';
+                const isPdf = format === 'pdf';
+                const contents = isPdf
+                    ? this.createTextPdf(this.formatBackupAsText(backup))
+                    : isText ? this.formatBackupAsText(backup) : JSON.stringify(backup, null, 2);
+                const extension = isPdf ? 'pdf' : isText ? 'txt' : 'json';
+                const mimeType = isPdf ? 'application/pdf' : isText ? 'text/plain;charset=utf-8' : 'application/json';
+                const file = new Blob([contents], { type: mimeType });
+                const url = URL.createObjectURL(file);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `thekedarpro-backup-${new Date().toISOString().slice(0, 10)}.${extension}`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+
+            formatBackupAsText(backup) {
+                const lines = [
+                    `${backup.app} data backup`,
+                    `Exported: ${backup.exportedAt}`,
+                    `Format version: ${backup.formatVersion}`,
+                    '',
+                    'This readable report is not intended for restoring data. Keep the JSON backup for restore-ready data.',
+                    ''
+                ];
+
+                Object.entries(backup.data).forEach(([sectionName, records]) => {
+                    const title = sectionName.replace(/([A-Z])/g, ' $1');
+                    lines.push(`${title.charAt(0).toUpperCase()}${title.slice(1)} (${records.length})`);
+                    lines.push('-'.repeat(title.length + String(records.length).length + 3));
+
+                    if (records.length === 0) {
+                        lines.push('  No records');
+                    } else {
+                        records.forEach((record, index) => {
+                            lines.push(`  Record ${index + 1}`);
+                            Object.entries(record).forEach(([key, value]) => {
+                                const label = key.replace(/([A-Z])/g, ' $1');
+                                const formattedLabel = `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+                                const formattedValue = typeof value === 'string' ? value : JSON.stringify(value);
+                                lines.push(`    ${formattedLabel}: ${formattedValue}`);
+                            });
+                        });
+                    }
+
+                    lines.push('');
+                });
+
+                return lines.join('\r\n');
+            }
+
+            createTextPdf(text) {
+                const linesPerPage = 50;
+                const maxLineLength = 100;
+                const lines = text.split(/\r?\n/).flatMap(line => {
+                    if (line.length <= maxLineLength) return [line];
+                    const wrappedLines = [];
+                    while (line.length > maxLineLength) {
+                        wrappedLines.push(line.slice(0, maxLineLength));
+                        line = `  ${line.slice(maxLineLength)}`;
+                    }
+                    wrappedLines.push(line);
+                    return wrappedLines;
+                });
+                const pages = [];
+                for (let index = 0; index < lines.length; index += linesPerPage) {
+                    pages.push(lines.slice(index, index + linesPerPage));
+                }
+
+                const escapePdfText = value => value
+                    .replace(/[^\x20-\x7E]/g, '?')
+                    .replace(/([\\()])/g, '\\$1');
+                const objects = [
+                    '<< /Type /Catalog /Pages 2 0 R >>',
+                    `<< /Type /Pages /Kids [${pages.map((_, index) => `${4 + index * 2} 0 R`).join(' ')}] /Count ${pages.length} >>`,
+                    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+                ];
+
+                pages.forEach((pageLines, index) => {
+                    const pageObjectNumber = 4 + index * 2;
+                    const contentObjectNumber = pageObjectNumber + 1;
+                    const content = [
+                        'BT',
+                        '/F1 9 Tf',
+                        '45 795 Td',
+                        '14 TL',
+                        ...pageLines.flatMap((line, lineIndex) => [
+                            `(${escapePdfText(line)}) Tj`,
+                            ...(lineIndex < pageLines.length - 1 ? ['T*'] : [])
+                        ]),
+                        'ET'
+                    ].join('\n');
+                    objects.push(
+                        `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`,
+                        `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
+                    );
+                });
+
+                let pdf = '%PDF-1.4\n';
+                const offsets = [0];
+                objects.forEach((object, index) => {
+                    offsets.push(pdf.length);
+                    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+                });
+                const xrefOffset = pdf.length;
+                pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+                offsets.slice(1).forEach(offset => {
+                    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+                });
+                pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+                return new TextEncoder().encode(pdf);
+            }
+
             async removeCurrentSite() {
                 const site = this.sites.find(item => item.name === this.currentSite);
                 if (!site) return;
@@ -1533,7 +1739,7 @@
 
                 let html = '';
                 for (let i = 0; i < firstDayIndex; i++) {
-                    html += `<div class="h-20 bg-slate-950/20 rounded-xl opacity-20"></div>`;
+                    html += `<div class="h-14 sm:h-16 md:h-20 bg-slate-950/20 rounded-xl opacity-20"></div>`;
                 }
 
                 let totalDaysWorked = 0;
@@ -1575,14 +1781,14 @@
 
                     html += `
                         <div onclick="app.openAttendanceModal('${worker.id}', '${dateStr}')" 
-                             class="h-16 sm:h-20 md:h-24 p-1.5 sm:p-2 rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
+                             class="h-14 sm:h-16 md:h-20 p-1 sm:p-1.5 rounded-lg sm:rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
                             <div class="flex items-center justify-between">
                                 <span class="font-mono-custom font-bold text-xs">${day}</span>
                                 <span class="w-2 h-2 rounded-full ${dotColor}"></span>
                             </div>
-                            <div>
-                                <span class="text-[10px] font-semibold block truncate">${statusBadgeText || 'Tap to mark'}</span>
-                                ${attRecord ? `<span class="text-[9px] font-mono-custom text-amber-400 block">₹${dailyWage}</span>` : ''}
+                            <div class="flex flex-col items-start justify-end leading-none gap-0.5 min-w-0">
+                                <span class="text-[10px] font-semibold block truncate ${statusBadgeText ? '' : 'calendar-hint'}">${statusBadgeText || 'Tap to mark'}</span>
+                                ${attRecord && (attRecord.status === 'present' || attRecord.status === 'half') ? `<span class="shrink-0 text-[9px] font-mono-custom text-amber-400">₹${dailyWage}</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -2266,5 +2472,10 @@
         });
     </script>
 
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(error => console.warn('Shortcut setup unavailable:', error)));
+        }
+    </script>
 </body>
 </html>
