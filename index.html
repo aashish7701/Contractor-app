@@ -49,6 +49,10 @@
         .btn-press:active {
             transform: scale(0.97);
         }
+        #siteSelector option {
+            background-color: #131c2e;
+            color: #f1f5f9;
+        }
     </style>
 </head>
 <body class="bg-darkBg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
@@ -181,6 +185,10 @@
                     <i class="fa-solid fa-hand-holding-dollar"></i>
                     <span>Client Inflow</span>
                 </button>
+                <button onclick="app.switchTab('recentTransactions')" id="tab-recentTransactions" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>Recent Transactions</span>
+                </button>
                 <button onclick="app.switchTab('reports')" id="tab-reports" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap text-slate-400 hover:text-slate-100 hover:bg-slate-800/60">
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>Reports & Summary</span>
@@ -288,6 +296,11 @@
                         <h3 class="font-bold text-sm text-slate-200">Payment History Ledger</h3>
                         <span id="paymentCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0 records</span>
                     </div>
+                    <div class="p-4 border-b border-slate-800 flex flex-wrap gap-3">
+                        <label class="text-xs text-slate-400">Worker
+                            <select id="paymentWorkerFilter" onchange="app.renderLabourPayments()" class="ml-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"><option value="">All workers</option></select>
+                        </label>
+                    </div>
                     <div id="labourPaymentsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
                         <!-- Populated dynamically -->
                     </div>
@@ -312,18 +325,34 @@
                         <h3 class="font-bold text-sm text-slate-200">Main Contractor Inflow Ledger</h3>
                         <span id="receiptCountBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0 records</span>
                     </div>
+                    <div class="p-4 border-b border-slate-800">
+                        <label class="text-xs text-slate-400">Client
+                            <select id="receiptClientFilter" onchange="app.renderClientReceipts()" class="ml-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"><option value="">All clients</option></select>
+                        </label>
+                    </div>
                     <div id="clientReceiptsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
             </section>
 
-            <!-- VIEW 5: REPORTS & TIMEFRAME ANALYTICS -->
+            <!-- VIEW 5: RECENT TRANSACTIONS -->
+            <section id="view-recentTransactions" class="hidden space-y-6">
+                <div class="bg-cardBg border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-md">
+                    <h2 class="font-bold text-lg text-slate-100">Recent Transactions</h2>
+                    <p class="text-xs text-slate-400 mt-1">Labour payments and client receipts, newest first, for the selected site.</p>
+                </div>
+                <div class="bg-cardBg border border-slate-800 rounded-2xl overflow-hidden shadow-md">
+                    <div id="recentTransactionsList" class="divide-y divide-slate-800/60"></div>
+                </div>
+            </section>
+
+            <!-- VIEW 6: REPORTS & TIMEFRAME ANALYTICS -->
             <section id="view-reports" class="hidden space-y-6">
-                <div class="bg-cardBg border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="bg-cardBg border border-slate-800 p-4 sm:p-5 rounded-2xl shadow-md flex flex-col gap-4">
                     <div>
                         <h2 class="font-bold text-lg text-slate-100">Timeframe Financial Reports</h2>
-                        <p class="text-xs text-slate-400">Filter expenses, advances, and earnings by Weekly, Monthly, Yearly, or All Time.</p>
+                        <p class="text-xs text-slate-400">Filter expenses, advances, and earnings by preset timeframe or choose a custom date range.</p>
                     </div>
 
                     <!-- Filter Selector -->
@@ -332,6 +361,18 @@
                         <button onclick="app.setReportFilter('monthly')" id="filter-monthly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Monthly</button>
                         <button onclick="app.setReportFilter('yearly')" id="filter-yearly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Yearly</button>
                         <button onclick="app.setReportFilter('all')" id="filter-all" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 transition">All Time</button>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label for="reportStartDate" class="block text-[11px] text-slate-400 mb-1">From</label>
+                            <input id="reportStartDate" type="date" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <div>
+                            <label for="reportEndDate" class="block text-[11px] text-slate-400 mb-1">To</label>
+                            <input id="reportEndDate" type="date" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-500">
+                        </div>
+                        <button onclick="app.setReportFilter('custom')" id="filter-custom" class="px-3 py-2 rounded-lg text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 transition">Apply Range</button>
+                        <p id="reportDateError" class="w-full text-xs text-rose-400" role="status"></p>
                     </div>
                 </div>
 
@@ -352,18 +393,22 @@
 
                 <!-- Detailed Worker Wage Breakdown Table -->
                 <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-md">
-                    <h3 class="font-bold text-sm text-slate-200 mb-4">Labour Attendance & Payout Summary</h3>
+                    <div class="mb-4">
+                        <h3 class="font-bold text-sm text-slate-200">Worker Attendance, Wages & Payments</h3>
+                        <p class="text-xs text-slate-400 mt-1">This table summarizes each worker for the selected site and report period. Present days earn a full day’s wage; half-days earn half. Wage changes on specific dates are included in earned wages.</p>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
                                 <tr>
-                                    <th class="p-3">Worker Name</th>
-                                    <th class="p-3">Role / Skill</th>
-                                    <th class="p-3">Default Rate</th>
-                                    <th class="p-3">Present Days</th>
-                                    <th class="p-3">Half Days</th>
-                                    <th class="p-3">Total Earned</th>
-                                    <th class="p-3">Total Advances Given</th>
+                                    <th class="p-3" title="Worker's name">Worker</th>
+                                    <th class="p-3" title="Worker's trade or job">Trade</th>
+                                    <th class="p-3" title="Worker's current standard daily wage; date-specific changes are used in earned wages">Daily rate</th>
+                                    <th class="p-3" title="Full attendance days in the selected period">Full days</th>
+                                    <th class="p-3" title="Half attendance days in the selected period">Half days</th>
+                                    <th class="p-3" title="Wages accrued from attendance in the selected period">Wages</th>
+                                    <th class="p-3" title="Other payments and advances recorded as given in the selected period">Other payments</th>
+                                    <th class="p-3" title="Wages plus payments recorded for the selected period">Total money given</th>
                                 </tr>
                             </thead>
                             <tbody id="reportWorkerTableBody" class="divide-y divide-slate-800/60 text-slate-300 font-mono-custom">
@@ -447,14 +492,33 @@
                         <input type="hidden" id="attSelectedStatus" value="present">
                     </div>
 
-                    <!-- Custom Daily Payout Input -->
+                    <!-- Daily wage is read-only here; changes are scheduled for a chosen effective date. -->
                     <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Custom Daily Payout / Wage Amount (₹)</label>
-                        <div class="relative">
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Daily Wage for This Date (₹)</label>
+                        <div class="flex gap-2">
+                          <div class="relative flex-1">
                             <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-amber-400 font-bold">₹</span>
-                            <input type="number" id="attCustomAmount" min="0" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-8 pr-4 text-sm text-slate-100 font-mono-custom focus:outline-none focus:border-amber-500" placeholder="e.g. 700">
+                            <input type="number" id="attCustomAmount" readonly class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-8 pr-4 text-sm text-slate-100 font-mono-custom">
+                          </div>
+                          <button type="button" onclick="app.openWageChangeModal()" class="px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold">Change wage…</button>
                         </div>
-                        <p class="text-[11px] text-slate-500 mt-1">Custom wage for this specific date (leave empty to use default rate).</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Changing the wage asks for confirmation and an effective date. The calendar applies it from that date onward.</p>
+                    </div>
+
+                    <div class="p-3 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
+                        <div>
+                            <label for="attPaymentAmount" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Payment Given Today (₹) — optional</label>
+                            <input type="number" id="attPaymentAmount" min="0" step="any" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 font-mono-custom focus:outline-none focus:border-amber-500" placeholder="Leave empty if no payment">
+                            <p class="text-[11px] text-slate-500 mt-1">Any amount entered is added to this worker’s Labour Khata.</p>
+                        </div>
+                        <div>
+                            <label for="attPaymentMode" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Payment Mode</label>
+                            <select id="attPaymentMode" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                                <option value="Cash">Cash</option>
+                                <option value="UPI (PhonePe / GPay)">UPI (PhonePe / GPay)</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div>
@@ -470,11 +534,40 @@
             </div>
         </div>
 
+        <!-- Styled wage change dialog -->
+        <div id="wageChangeModal" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+            <div class="bg-cardBg border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-100">Change Daily Wage</h3>
+                        <p id="wageChangeWorkerLabel" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+                    <button type="button" onclick="app.closeWageChangeModal()" class="text-slate-400 hover:text-slate-100" aria-label="Close wage change dialog"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <form onsubmit="app.saveWageChange(event)" class="space-y-4">
+                    <div>
+                        <label for="newDailyWage" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">New Daily Wage (₹)</label>
+                        <input id="newDailyWage" type="number" required min="0" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 font-mono-custom focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label for="wageEffectiveDate" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Effective From</label>
+                        <input id="wageEffectiveDate" type="date" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <p id="wageChangeError" class="text-xs text-rose-400" role="status"></p>
+                    <p class="text-xs text-slate-500">The calendar and reports will use this wage from the selected date onward.</p>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" onclick="app.closeWageChangeModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Cancel</button>
+                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl">Save Wage Change</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- 3. Record Labour Payment Modal -->
         <div id="paymentModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
             <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Record Labour Payment / Advance</h3>
+                    <h3 id="paymentModalTitle" class="font-bold text-base text-slate-100">Record Labour Payment / Advance</h3>
                     <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <form onsubmit="app.saveLabourPayment(event)" class="space-y-4">
@@ -502,9 +595,20 @@
                     </div>
                     <div class="flex items-center justify-end space-x-3 pt-2">
                         <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Payment</button>
+                        <button id="paymentSubmitButton" type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Payment</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <div id="paymentActionConfirmModal" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+            <div class="bg-cardBg border border-slate-700 rounded-3xl max-w-sm w-full p-6 shadow-2xl">
+                <h3 id="paymentActionConfirmTitle" class="font-bold text-base text-slate-100">Confirm action</h3>
+                <p id="paymentActionConfirmMessage" class="text-sm text-slate-400 mt-2"></p>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="app.closePaymentActionConfirm()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Cancel</button>
+                    <button type="button" onclick="app.confirmPaymentAction()" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl">Confirm</button>
+                </div>
             </div>
         </div>
 
@@ -512,10 +616,14 @@
         <div id="clientReceiptModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
             <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <h3 class="font-bold text-base text-slate-100">Record Client / Main Contractor Funds</h3>
+                    <h3 id="receiptModalTitle" class="font-bold text-base text-slate-100">Record Client / Main Contractor Funds</h3>
                     <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <form onsubmit="app.saveClientReceipt(event)" class="space-y-4">
+                    <div>
+                        <label for="recClientName" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Client Name</label>
+                        <input type="text" id="recClientName" required maxlength="100" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="e.g. ABC Builders">
+                    </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Amount Received (₹)</label>
                         <input type="number" id="recAmount" required min="1" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono-custom" placeholder="e.g. 50000">
@@ -535,7 +643,7 @@
                     </div>
                     <div class="flex items-center justify-end space-x-3 pt-2">
                         <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Receipt</button>
+                        <button id="receiptSubmitButton" type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Record Receipt</button>
                     </div>
                 </form>
             </div>
@@ -562,6 +670,32 @@
                         <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Create Site</button>
                     </div>
                 </form>
+                <div class="mt-5 pt-4 border-t border-slate-800/80">
+                    <button type="button" onclick="app.openDeletionManager()" class="text-xs text-slate-500 hover:text-rose-400 underline underline-offset-2 transition">
+                        Manage deletions…
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dedicated deletion manager -->
+        <div id="deletionManagerModal" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+            <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                    <div>
+                        <h3 class="font-bold text-base text-slate-100">Manage Deletions</h3>
+                        <p class="text-xs text-slate-500 mt-1">Choose a site or worker to remove. Each removal asks for confirmation.</p>
+                    </div>
+                    <button onclick="app.closeDeletionManager()" class="text-slate-400 hover:text-slate-100" aria-label="Close deletion manager"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <section>
+                    <h4 class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Sites</h4>
+                    <div id="deletionSiteList" class="space-y-2"></div>
+                </section>
+                <section class="mt-6 pt-4 border-t border-slate-800">
+                    <h4 class="text-xs uppercase tracking-wider text-slate-400 font-bold mb-2">Workers</h4>
+                    <div id="deletionWorkerList" class="space-y-2"></div>
+                </section>
             </div>
         </div>
 
@@ -660,6 +794,9 @@
                     this.attendance = [];
                     this.labourPayments = [];
                     this.clientReceipts = [];
+                this.editingLabourPaymentId = null;
+                this.editingClientReceiptId = null;
+                this.pendingPaymentAction = null;
                     this.refreshUI();
                 }
             }
@@ -692,8 +829,8 @@
                     const tx = this.db.transaction(storeName, 'readwrite');
                     const store = tx.objectStore(storeName);
                     store.delete(id);
-                    tx.oncomplete = () => {
-                        if (!this.applyingCloudData) this.deleteRecordFromCloud(storeName, id);
+                    tx.oncomplete = async () => {
+                        if (!this.applyingCloudData) await this.deleteRecordFromCloud(storeName, id);
                         resolve(true);
                     };
                     tx.onerror = () => resolve(false);
@@ -960,6 +1097,91 @@
                 this.refreshUI();
             }
 
+            async removeCurrentSite() {
+                const site = this.sites.find(item => item.name === this.currentSite);
+                if (!site) return;
+                if (this.sites.length <= 1) {
+                    alert('You must keep at least one site. Add another site before removing this one.');
+                    return;
+                }
+                const relatedWorkers = this.workers.filter(worker => worker.siteId === site.name);
+                const relatedAttendance = this.attendance.filter(record => record.siteId === site.name || relatedWorkers.some(worker => worker.id === record.workerId));
+                const relatedPayments = this.labourPayments.filter(record => record.siteId === site.name || relatedWorkers.some(worker => worker.id === record.workerId));
+                const relatedReceipts = this.clientReceipts.filter(record => record.siteId === site.name);
+                const message = `Remove "${site.name}" and permanently delete its ${relatedWorkers.length} worker(s), ${relatedAttendance.length} attendance record(s), ${relatedPayments.length} payment(s), and ${relatedReceipts.length} receipt(s)? This also removes them from cloud sync.`;
+                if (!confirm(message)) return;
+
+                for (const record of [...relatedAttendance, ...relatedPayments, ...relatedReceipts, ...relatedWorkers]) {
+                    const storeName = relatedAttendance.includes(record) ? 'attendance'
+                        : relatedPayments.includes(record) ? 'labourPayments'
+                        : relatedReceipts.includes(record) ? 'clientReceipts' : 'workers';
+                    await this.IDBDelete(storeName, record.id);
+                }
+                await this.IDBDelete('sites', site.id);
+                this.sites = this.sites.filter(item => item.id !== site.id);
+                this.workers = this.workers.filter(record => !relatedWorkers.includes(record));
+                this.attendance = this.attendance.filter(record => !relatedAttendance.includes(record));
+                this.labourPayments = this.labourPayments.filter(record => !relatedPayments.includes(record));
+                this.clientReceipts = this.clientReceipts.filter(record => !relatedReceipts.includes(record));
+                this.currentSite = this.sites[0].name;
+                this.refreshUI();
+                this.renderDeletionManager();
+            }
+
+            openDeletionManager() {
+                this.closeModals();
+                this.renderDeletionManager();
+                const modal = document.getElementById('deletionManagerModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            closeDeletionManager() {
+                const modal = document.getElementById('deletionManagerModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            renderDeletionManager() {
+                const siteList = document.getElementById('deletionSiteList');
+                const workerList = document.getElementById('deletionWorkerList');
+                if (!siteList || !workerList) return;
+                siteList.innerHTML = this.sites.map(site => `
+                    <div class="flex items-center justify-between gap-3 bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2">
+                        <span class="text-sm text-slate-200 truncate">${site.name}${site.name === this.currentSite ? ' <span class=\"text-xs text-amber-400\">(current)</span>' : ''}</span>
+                        <button type="button" onclick="app.removeSiteById('${site.id}')" class="shrink-0 px-2.5 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg" ${this.sites.length <= 1 ? 'disabled title=\"At least one site must remain\"' : ''}>Delete site</button>
+                    </div>`).join('') || '<p class="text-xs text-slate-500">No sites.</p>';
+                const workers = this.workers.filter(worker => worker.siteId === this.currentSite);
+                workerList.innerHTML = workers.map(worker => `
+                    <div class="flex items-center justify-between gap-3 bg-slate-900/70 border border-slate-800 rounded-xl px-3 py-2">
+                        <span class="text-sm text-slate-200 truncate">${worker.name} <span class="text-xs text-slate-500">(${worker.role})</span></span>
+                        <button type="button" onclick="app.removeWorkerById('${worker.id}')" class="shrink-0 px-2.5 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg">Delete worker</button>
+                    </div>`).join('') || '<p class="text-xs text-slate-500">No workers at this site.</p>';
+            }
+
+            async removeSiteById(siteId) {
+                const site = this.sites.find(item => item.id === siteId);
+                if (!site) return;
+                this.currentSite = site.name;
+                await this.removeCurrentSite();
+            }
+
+            async removeWorkerById(workerId) {
+                const worker = this.workers.find(item => item.id === workerId);
+                if (!worker) return;
+                const attendance = this.attendance.filter(record => record.workerId === worker.id);
+                const payments = this.labourPayments.filter(record => record.workerId === worker.id);
+                if (!confirm(`Delete worker "${worker.name}" and their ${attendance.length} attendance record(s) and ${payments.length} payment(s)? This also removes them from cloud sync.`)) return;
+                for (const record of attendance) await this.IDBDelete('attendance', record.id);
+                for (const record of payments) await this.IDBDelete('labourPayments', record.id);
+                await this.IDBDelete('workers', worker.id);
+                this.attendance = this.attendance.filter(record => record.workerId !== worker.id);
+                this.labourPayments = this.labourPayments.filter(record => record.workerId !== worker.id);
+                this.workers = this.workers.filter(item => item.id !== worker.id);
+                this.refreshUI();
+                this.renderDeletionManager();
+            }
+
             switchTab(tabId) {
                 this.currentTab = tabId;
                 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -970,7 +1192,7 @@
                     activeBtn.className = "tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center space-x-2 whitespace-nowrap bg-amber-500 text-slate-950 shadow-md";
                 }
 
-                ['workers', 'calendar', 'labourPayments', 'clientReceipts', 'reports'].forEach(id => {
+                ['workers', 'calendar', 'labourPayments', 'clientReceipts', 'recentTransactions', 'reports'].forEach(id => {
                     const el = document.getElementById('view-' + id);
                     if (el) el.classList.add('hidden');
                 });
@@ -990,7 +1212,40 @@
                 if (this.currentTab === 'calendar') this.renderCalendarViewDropdowns();
                 if (this.currentTab === 'labourPayments') this.renderLabourPayments();
                 if (this.currentTab === 'clientReceipts') this.renderClientReceipts();
+                if (this.currentTab === 'recentTransactions') this.renderRecentTransactions();
                 if (this.currentTab === 'reports') this.renderReports();
+            }
+
+            renderRecentTransactions() {
+                const list = document.getElementById('recentTransactionsList');
+                if (!list) return;
+                const workersById = new Map(this.workers.map(worker => [worker.id, worker]));
+                const transactions = [
+                    ...this.labourPayments.filter(record => record.siteId === this.currentSite).map(record => ({
+                        ...record, kind: 'payment', label: `Paid to ${workersById.get(record.workerId)?.name || 'Unknown Worker'}`, amountLabel: `−₹${Number(record.amount).toLocaleString()}`, amountClass: 'text-rose-400', icon: 'fa-arrow-up'
+                    })),
+                    ...this.clientReceipts.filter(record => record.siteId === this.currentSite).map(record => ({
+                        ...record, kind: 'receipt', label: `Receipt from ${record.clientName || 'client'}`, amountLabel: `+₹${Number(record.amount).toLocaleString()}`, amountClass: 'text-emerald-400', icon: 'fa-arrow-down'
+                    }))
+                ].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                if (!transactions.length) {
+                    list.innerHTML = `<div class="py-12 text-center text-slate-500">No transactions recorded for ${this.currentSite}</div>`;
+                    return;
+                }
+                list.innerHTML = transactions.map(record => {
+                    const date = new Date(record.timestamp || 0);
+                    const dateLabel = Number.isNaN(date.getTime()) ? 'Date unavailable' : `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    const mode = record.mode ? ` · ${record.mode}` : '';
+                    const notes = record.notes ? `<p class="text-xs text-slate-500 mt-1">${record.notes}</p>` : '';
+                    return `<article class="p-4 flex items-center justify-between gap-4">
+                        <div class="flex items-start gap-3 min-w-0">
+                            <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center ${record.amountClass}"><i class="fa-solid ${record.icon} text-xs"></i></span>
+                            <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-100 truncate">${record.label}</h3><p class="text-xs text-slate-500 mt-1">${dateLabel}${mode}</p>${notes}</div>
+                        </div>
+                        <strong class="shrink-0 text-sm font-mono-custom ${record.amountClass}">${record.amountLabel}</strong>
+                    </article>`;
+                }).join('');
             }
 
             // --- WORKERS DIRECTORY VIEW ---
@@ -1014,7 +1269,7 @@
                     const todayAtt = this.attendance.find(a => a.workerId === w.id && a.dateStr === todayStr);
                     let statusText = 'Not Marked';
                     let badgeClass = 'bg-slate-800 text-slate-400 border-slate-700';
-                    let displayWage = todayAtt && todayAtt.customWage ? todayAtt.customWage : w.wage;
+                    let displayWage = todayAtt && todayAtt.customWage != null ? todayAtt.customWage : this.wageForDate(w, todayStr);
 
                     if (todayAtt) {
                         if (todayAtt.status === 'present') { statusText = 'Present'; badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'; }
@@ -1116,7 +1371,7 @@
                     let dailyWage = worker.wage;
 
                     if (attRecord) {
-                        if (attRecord.customWage) dailyWage = attRecord.customWage;
+                        dailyWage = attRecord.customWage != null ? attRecord.customWage : this.wageForDate(worker, dateStr);
 
                         if (attRecord.status === 'present') {
                             statusColor = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:border-emerald-500/50';
@@ -1170,11 +1425,60 @@
                 const existingStatus = attRecord ? attRecord.status : 'present';
                 this.selectAttStatus(existingStatus);
 
-                document.getElementById('attCustomAmount').value = attRecord && attRecord.customWage ? attRecord.customWage : worker.wage;
+                document.getElementById('attCustomAmount').value = this.wageForDate(worker, dateStr);
                 document.getElementById('attNotes').value = attRecord ? attRecord.notes || '' : '';
+                const linkedPayment = attRecord && this.labourPayments.find(payment => payment.attendanceId === attRecord.id);
+                document.getElementById('attPaymentAmount').value = linkedPayment ? linkedPayment.amount : '';
+                document.getElementById('attPaymentMode').value = linkedPayment ? linkedPayment.mode : 'Cash';
 
                 document.getElementById('attendanceModal').classList.remove('hidden');
                 document.getElementById('attendanceModal').classList.add('flex');
+            }
+
+            wageForDate(worker, dateStr) {
+                const changes = (worker.wageHistory || []).filter(change => change.effectiveDate <= dateStr)
+                    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+                return changes.length ? Number(changes[changes.length - 1].amount) : Number(worker.wage);
+            }
+
+            openWageChangeModal() {
+                const workerId = document.getElementById('attWorkerId').value;
+                const worker = this.workers.find(item => item.id === workerId);
+                const selectedDate = document.getElementById('attDateStr').value;
+                if (!worker) return;
+                document.getElementById('wageChangeWorkerLabel').textContent = `For ${worker.name}`;
+                document.getElementById('newDailyWage').value = this.wageForDate(worker, selectedDate);
+                document.getElementById('wageEffectiveDate').value = selectedDate;
+                document.getElementById('wageChangeError').textContent = '';
+                const modal = document.getElementById('wageChangeModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            closeWageChangeModal() {
+                const modal = document.getElementById('wageChangeModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            async saveWageChange(e) {
+                e.preventDefault();
+                const workerId = document.getElementById('attWorkerId').value;
+                const worker = this.workers.find(item => item.id === workerId);
+                const amount = Number(document.getElementById('newDailyWage').value);
+                const effectiveDate = document.getElementById('wageEffectiveDate').value;
+                const error = document.getElementById('wageChangeError');
+                if (!worker || !Number.isFinite(amount) || amount < 0 || !effectiveDate) {
+                    error.textContent = 'Enter a valid wage and effective date.';
+                    return;
+                }
+                worker.wageHistory = [...(worker.wageHistory || []), { effectiveDate, amount, createdAt: Date.now() }]
+                    .filter((change, index, list) => list.findIndex(item => item.effectiveDate === change.effectiveDate) === index);
+                worker.wageHistory.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+                await this.IDBPut('workers', worker);
+                document.getElementById('attCustomAmount').value = this.wageForDate(worker, document.getElementById('attDateStr').value);
+                this.closeWageChangeModal();
+                this.refreshUI();
             }
 
             selectAttStatus(status) {
@@ -1196,9 +1500,10 @@
                 const workerId = document.getElementById('attWorkerId').value;
                 const dateStr = document.getElementById('attDateStr').value;
                 const status = document.getElementById('attSelectedStatus').value;
-                const customWageVal = document.getElementById('attCustomAmount').value;
-                const customWage = customWageVal ? parseFloat(customWageVal) : null;
                 const notes = document.getElementById('attNotes').value.trim();
+                const paymentAmountInput = document.getElementById('attPaymentAmount').value;
+                const paymentAmount = paymentAmountInput ? parseFloat(paymentAmountInput) : 0;
+                const paymentMode = document.getElementById('attPaymentMode').value;
 
                 this.attendance = this.attendance.filter(a => !(a.workerId === workerId && a.dateStr === dateStr));
 
@@ -1208,13 +1513,33 @@
                     workerId,
                     dateStr,
                     status,
-                    customWage,
+                    customWage: null,
                     notes,
                     timestamp: Date.now()
                 };
 
                 this.attendance.push(newAtt);
                 await this.IDBPut('attendance', newAtt);
+
+                const existingLinkedPayment = this.labourPayments.find(payment => payment.attendanceId === newAtt.id);
+                if (paymentAmount > 0) {
+                    const paymentRecord = {
+                        id: existingLinkedPayment?.id || `pay_att_${workerId}_${dateStr}`,
+                        attendanceId: newAtt.id,
+                        siteId: this.currentSite,
+                        workerId,
+                        amount: paymentAmount,
+                        mode: paymentMode,
+                        notes: `Payment with attendance for ${dateStr}`,
+                        timestamp: existingLinkedPayment?.timestamp || Date.now()
+                    };
+                    this.labourPayments = this.labourPayments.filter(payment => payment.id !== paymentRecord.id);
+                    this.labourPayments.push(paymentRecord);
+                    await this.IDBPut('labourPayments', paymentRecord);
+                } else if (existingLinkedPayment) {
+                    this.labourPayments = this.labourPayments.filter(payment => payment.id !== existingLinkedPayment.id);
+                    await this.IDBDelete('labourPayments', existingLinkedPayment.id);
+                }
                 this.closeModals();
                 this.refreshUI();
             }
@@ -1223,45 +1548,131 @@
             renderLabourPayments() {
                 const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
                 const workerIds = siteWorkers.map(w => w.id);
-                const payments = this.labourPayments.filter(p => workerIds.includes(p.workerId)).sort((a,b) => b.timestamp - a.timestamp);
+                const sitePayments = this.labourPayments.filter(p => workerIds.includes(p.workerId));
+                const workerFilter = document.getElementById('paymentWorkerFilter');
+                const selectedWorker = workerFilter.value;
+                workerFilter.innerHTML = '<option value="">All workers</option>' + siteWorkers.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+                workerFilter.value = selectedWorker;
+                const payments = sitePayments.filter(p => !workerFilter.value || p.workerId === workerFilter.value).sort((a,b) => b.timestamp - a.timestamp);
 
                 document.getElementById('paymentCountBadge').innerText = `${payments.length} records`;
-
                 const list = document.getElementById('labourPaymentsList');
+                list.hidden = false;
+                list.style.cssText = 'display:block;visibility:visible;opacity:1;min-height:72px;color:#e2e8f0';
                 if (payments.length === 0) {
                     list.innerHTML = `<div class="py-12 text-center text-slate-500">No labour payments recorded for ${this.currentSite}</div>`;
                     return;
                 }
 
-                list.innerHTML = payments.map(p => {
+                list.innerHTML = '';
+                payments.forEach(p => {
                     const worker = this.workers.find(w => w.id === p.workerId) || { name: 'Unknown Worker' };
-                    const dateObj = new Date(p.timestamp);
-                    const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const rawTimestamp = p.timestamp;
+                    const timestamp = typeof rawTimestamp === 'number' ? rawTimestamp : (rawTimestamp?.toMillis?.() || (Number(rawTimestamp?.seconds) * 1000) || Date.parse(rawTimestamp) || 0);
+                    const dateObj = new Date(timestamp);
+                    const timeStr = Number.isNaN(dateObj.getTime()) ? 'Date unavailable' : `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
-                    return `
-                        <div class="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">${worker.name}</h4>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">${p.mode}</span>
-                                </div>
-                                <p class="text-xs text-slate-400 font-mono-custom">${timeStr}</p>
-                                ${p.notes ? `<p class="text-xs text-slate-400 italic"><i class="fa-solid fa-note-sticky mr-1"></i>${p.notes}</p>` : ''}
-                            </div>
-                            <div class="flex items-center space-x-4">
-                                <span class="text-base font-bold font-mono-custom text-amber-400">₹${p.amount}</span>
-                                <button onclick="app.deleteLabourPayment('${p.id}')" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                    const row = document.createElement('article');
+                    row.dataset.paymentId = String(p.id);
+                    row.className = 'p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition';
+                    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;border-bottom:1px solid #1e293b;color:#e2e8f0;min-height:72px;visibility:visible;opacity:1';
+                    const details = document.createElement('div');
+                    details.className = 'space-y-1';
+                    const heading = document.createElement('div');
+                    heading.className = 'flex items-center gap-2';
+                    const workerName = document.createElement('h4');
+                    workerName.className = 'font-bold text-sm text-slate-100';
+                    workerName.textContent = worker.name || 'Unknown Worker';
+                    const mode = document.createElement('span');
+                    mode.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom';
+                    mode.textContent = p.mode || 'Payment';
+                    heading.append(workerName, mode);
+                    details.append(heading);
+                    const date = document.createElement('p');
+                    date.className = 'text-xs text-slate-400 font-mono-custom';
+                    date.textContent = timeStr;
+                    details.append(date);
+                    if (p.notes) {
+                        const notes = document.createElement('p');
+                        notes.className = 'text-xs text-slate-400 italic';
+                        notes.textContent = p.notes;
+                        details.append(notes);
+                    }
+                    const amountAndSelect = document.createElement('div');
+                    amountAndSelect.className = 'flex items-center space-x-4';
+                    const amount = document.createElement('span');
+                    amount.className = 'text-base font-bold font-mono-custom text-amber-400';
+                    amount.textContent = `₹${Number(p.amount || 0).toLocaleString()}`;
+                    amountAndSelect.append(amount);
+                    const menuWrap = document.createElement('div');
+                    menuWrap.className = 'relative';
+                    const menuButton = document.createElement('button');
+                    menuButton.type = 'button';
+                    menuButton.className = 'text-slate-400 hover:text-slate-100 p-2 rounded-lg hover:bg-slate-800';
+                    menuButton.setAttribute('aria-label', 'Payment options');
+                    menuButton.setAttribute('aria-expanded', 'false');
+                    menuButton.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+                    const menu = document.createElement('div');
+                    menu.className = 'hidden absolute right-0 top-full z-20 mt-1 min-w-32 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl';
+                    const editButton = document.createElement('button');
+                    editButton.type = 'button';
+                    editButton.className = 'block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg';
+                    editButton.textContent = 'Edit';
+                    editButton.addEventListener('click', () => {
+                        menu.classList.add('hidden');
+                        menuButton.setAttribute('aria-expanded', 'false');
+                        this.openEditLabourPayment(p.id);
+                    });
+                    const removeButton = document.createElement('button');
+                    removeButton.type = 'button';
+                    removeButton.className = 'block w-full text-left px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/10 rounded-lg';
+                    removeButton.textContent = 'Remove';
+                    removeButton.addEventListener('click', () => {
+                        menu.classList.add('hidden');
+                        menuButton.setAttribute('aria-expanded', 'false');
+                        this.requestPaymentRemoval(p.id);
+                    });
+                    menu.append(editButton, removeButton);
+                    menuButton.addEventListener('click', () => {
+                        const willOpen = menu.classList.contains('hidden');
+                        document.querySelectorAll('#labourPaymentsList .payment-options-menu').forEach(otherMenu => otherMenu.classList.add('hidden'));
+                        menu.classList.toggle('hidden', !willOpen);
+                        menuButton.setAttribute('aria-expanded', String(willOpen));
+                    });
+                    menu.classList.add('payment-options-menu');
+                    menuWrap.append(menuButton, menu);
+                    amountAndSelect.append(menuWrap);
+                    row.append(details, amountAndSelect);
+                    list.appendChild(row);
+                });
             }
 
             openAddPaymentModal() {
+                this.editingLabourPaymentId = null;
                 const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
                 const select = document.getElementById('payWorkerId');
                 select.innerHTML = siteWorkers.map(w => `<option value="${w.id}">${w.name} (${w.role})</option>`).join('');
+                document.getElementById('paymentModalTitle').textContent = 'Record Labour Payment / Advance';
+                document.getElementById('paymentSubmitButton').textContent = 'Record Payment';
+                document.getElementById('payAmount').value = '';
+                document.getElementById('payNotes').value = '';
+                document.getElementById('paymentModal').classList.remove('hidden');
+                document.getElementById('paymentModal').classList.add('flex');
+            }
 
+            openEditLabourPayment(id) {
+                const payment = this.labourPayments.find(item => String(item.id) === String(id));
+                if (!payment) return;
+                this.editingLabourPaymentId = payment.id;
+                const siteWorkers = this.workers.filter(w => w.siteId === this.currentSite);
+                const select = document.getElementById('payWorkerId');
+                select.innerHTML = siteWorkers.map(w => `<option value="${w.id}">${w.name} (${w.role})</option>`).join('');
+                select.value = payment.workerId;
+                document.getElementById('payAmount').value = payment.amount;
+                document.getElementById('payMode').value = payment.mode || 'Cash';
+                document.getElementById('payNotes').value = payment.notes || '';
+                document.getElementById('paymentModalTitle').textContent = 'Edit Labour Payment';
+                document.getElementById('paymentSubmitButton').textContent = 'Review Changes';
                 document.getElementById('paymentModal').classList.remove('hidden');
                 document.getElementById('paymentModal').classList.add('flex');
             }
@@ -1272,7 +1683,13 @@
                 const amount = parseFloat(document.getElementById('payAmount').value);
                 const mode = document.getElementById('payMode').value;
                 const notes = document.getElementById('payNotes').value.trim();
-
+                if (this.editingLabourPaymentId !== null) {
+                    const existing = this.labourPayments.find(payment => String(payment.id) === String(this.editingLabourPaymentId));
+                    if (!existing) return;
+                    const updated = { ...existing, workerId, amount, mode, notes };
+                    this.openPaymentActionConfirmation('editPayment', updated);
+                    return;
+                }
                 const record = {
                     id: 'pay_' + Date.now(),
                     siteId: this.currentSite,
@@ -1289,20 +1706,70 @@
                 this.refreshUI();
             }
 
-            async deleteLabourPayment(id) {
-                if (confirm('Delete this payment record?')) {
-                    this.labourPayments = this.labourPayments.filter(p => p.id !== id);
-                    await this.IDBDelete('labourPayments', id);
-                    this.refreshUI();
+            requestPaymentRemoval(id) {
+                const payment = this.labourPayments.find(item => String(item.id) === String(id));
+                if (payment) this.openPaymentActionConfirmation('removePayment', payment);
+            }
+
+            openPaymentActionConfirmation(action, record) {
+                this.pendingPaymentAction = { action, record };
+                const isEdit = action.startsWith('edit');
+                const isReceipt = action.endsWith('Receipt');
+                document.getElementById('paymentActionConfirmTitle').textContent = isEdit
+                    ? `Confirm ${isReceipt ? 'receipt' : 'payment'} changes`
+                    : `Remove ${isReceipt ? 'receipt' : 'payment'}?`;
+                document.getElementById('paymentActionConfirmMessage').textContent = isEdit
+                    ? `Save the changes you made to this ${isReceipt ? 'client receipt' : 'labour payment'}?`
+                    : `This ${isReceipt ? 'client receipt' : 'labour payment'} will be permanently removed from this device and cloud sync.`;
+                const modal = document.getElementById('paymentActionConfirmModal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            closePaymentActionConfirm() {
+                const modal = document.getElementById('paymentActionConfirmModal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                this.pendingPaymentAction = null;
+            }
+
+            async confirmPaymentAction() {
+                const pending = this.pendingPaymentAction;
+                if (!pending) return;
+                const isPayment = pending.action.endsWith('Payment');
+                const isEdit = pending.action.startsWith('edit');
+                const storeName = isPayment ? 'labourPayments' : 'clientReceipts';
+                const records = isPayment ? this.labourPayments : this.clientReceipts;
+                if (isEdit) {
+                    const index = records.findIndex(item => String(item.id) === String(pending.record.id));
+                    if (index < 0) return;
+                    records[index] = pending.record;
+                    await this.IDBPut(storeName, pending.record);
+                    this.closePaymentActionConfirm();
+                    this.closeModals();
+                } else {
+                    const id = pending.record.id;
+                    if (isPayment) this.labourPayments = this.labourPayments.filter(item => String(item.id) !== String(id));
+                    else this.clientReceipts = this.clientReceipts.filter(item => String(item.id) !== String(id));
+                    await this.IDBDelete(storeName, id);
+                    this.closePaymentActionConfirm();
                 }
+                this.refreshUI();
             }
 
             // --- CLIENT RECEIPTS ---
             renderClientReceipts() {
-                const receipts = this.clientReceipts.filter(r => r.siteId === this.currentSite).sort((a,b) => b.timestamp - a.timestamp);
+                const siteReceipts = this.clientReceipts.filter(r => r.siteId === this.currentSite);
+                const clientFilter = document.getElementById('receiptClientFilter');
+                const selectedClient = clientFilter.value;
+                const clients = [...new Set(siteReceipts.map(r => r.clientName || 'Unspecified client'))].sort((a, b) => a.localeCompare(b));
+                clientFilter.innerHTML = '<option value="">All clients</option>' + clients.map(name => `<option value="${name}">${name}</option>`).join('');
+                clientFilter.value = selectedClient;
+                const receipts = siteReceipts.filter(r => !clientFilter.value || (r.clientName || 'Unspecified client') === clientFilter.value).sort((a,b) => b.timestamp - a.timestamp);
                 document.getElementById('receiptCountBadge').innerText = `${receipts.length} records`;
-
                 const list = document.getElementById('clientReceiptsList');
+                list.hidden = false;
+                list.style.cssText = 'display:block;visibility:visible;opacity:1;min-height:72px;color:#e2e8f0';
                 if (receipts.length === 0) {
                     list.innerHTML = `<div class="py-12 text-center text-slate-500">No client inflows recorded for ${this.currentSite}</div>`;
                     return;
@@ -1316,7 +1783,7 @@
                         <div class="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition">
                             <div class="space-y-1">
                                 <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">Received from Main Contractor</h4>
+                                    <h4 class="font-bold text-sm text-slate-100">${r.clientName || 'Received from Main Contractor'}</h4>
                                     <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">${r.mode}</span>
                                 </div>
                                 <p class="text-xs text-slate-400 font-mono-custom">${timeStr}</p>
@@ -1324,7 +1791,13 @@
                             </div>
                             <div class="flex items-center space-x-4">
                                 <span class="text-base font-bold font-mono-custom text-emerald-400">+₹${r.amount}</span>
-                                <button onclick="app.deleteClientReceipt('${r.id}')" class="text-slate-500 hover:text-rose-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                                <div class="relative">
+                                    <button type="button" onclick="app.toggleClientReceiptMenu('${r.id}', this)" class="w-9 h-9 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800" aria-label="Receipt options" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                    <div id="receiptMenu-${r.id}" class="receipt-options-menu hidden absolute right-0 top-full z-20 mt-1 min-w-32 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
+                                        <button type="button" onclick="app.openEditClientReceipt('${r.id}')" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg">Edit</button>
+                                        <button type="button" onclick="app.requestClientReceiptRemoval('${r.id}')" class="w-full text-left px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/10 rounded-lg">Remove</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1332,19 +1805,72 @@
             }
 
             openAddClientReceiptModal() {
+                this.editingClientReceiptId = null;
+                document.getElementById('receiptModalTitle').textContent = 'Record Client / Main Contractor Funds';
+                document.getElementById('receiptSubmitButton').textContent = 'Record Receipt';
+                document.getElementById('recClientName').value = '';
+                document.getElementById('recAmount').value = '';
+                document.getElementById('recMode').value = 'Bank Transfer';
+                document.getElementById('recNotes').value = '';
                 document.getElementById('clientReceiptModal').classList.remove('hidden');
                 document.getElementById('clientReceiptModal').classList.add('flex');
             }
 
+            closeClientReceiptMenus() {
+                document.querySelectorAll('#clientReceiptsList .receipt-options-menu').forEach(menu => menu.classList.add('hidden'));
+                document.querySelectorAll('#clientReceiptsList button[aria-label="Receipt options"]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+            }
+
+            toggleClientReceiptMenu(id, button) {
+                const menu = document.getElementById(`receiptMenu-${id}`);
+                if (!menu) return;
+                const willOpen = menu.classList.contains('hidden');
+                this.closeClientReceiptMenus();
+                menu.classList.toggle('hidden', !willOpen);
+                button.setAttribute('aria-expanded', String(willOpen));
+            }
+
+            openEditClientReceipt(id) {
+                const receipt = this.clientReceipts.find(item => String(item.id) === String(id));
+                if (!receipt) return;
+                this.closeClientReceiptMenus();
+                this.editingClientReceiptId = receipt.id;
+                document.getElementById('recClientName').value = receipt.clientName || '';
+                document.getElementById('recAmount').value = receipt.amount;
+                document.getElementById('recMode').value = receipt.mode || 'Bank Transfer';
+                document.getElementById('recNotes').value = receipt.notes || '';
+                document.getElementById('receiptModalTitle').textContent = 'Edit Client Receipt';
+                document.getElementById('receiptSubmitButton').textContent = 'Review Changes';
+                document.getElementById('clientReceiptModal').classList.remove('hidden');
+                document.getElementById('clientReceiptModal').classList.add('flex');
+            }
+
+            requestClientReceiptRemoval(id) {
+                const receipt = this.clientReceipts.find(item => String(item.id) === String(id));
+                if (!receipt) return;
+                this.closeClientReceiptMenus();
+                this.openPaymentActionConfirmation('removeReceipt', receipt);
+            }
+
             async saveClientReceipt(e) {
                 e.preventDefault();
+                const clientName = document.getElementById('recClientName').value.trim();
                 const amount = parseFloat(document.getElementById('recAmount').value);
                 const mode = document.getElementById('recMode').value;
                 const notes = document.getElementById('recNotes').value.trim();
 
+                if (this.editingClientReceiptId !== null) {
+                    const existing = this.clientReceipts.find(receipt => String(receipt.id) === String(this.editingClientReceiptId));
+                    if (!existing) return;
+                    const updated = { ...existing, clientName, amount, mode, notes };
+                    this.openPaymentActionConfirmation('editReceipt', updated);
+                    return;
+                }
+
                 const record = {
                     id: 'rec_' + Date.now(),
                     siteId: this.currentSite,
+                    clientName,
                     amount,
                     mode,
                     notes,
@@ -1357,19 +1883,12 @@
                 this.refreshUI();
             }
 
-            async deleteClientReceipt(id) {
-                if (confirm('Delete this client receipt?')) {
-                    this.clientReceipts = this.clientReceipts.filter(r => r.id !== id);
-                    await this.IDBDelete('clientReceipts', id);
-                    this.refreshUI();
-                }
-            }
-
             // --- REPORTS ---
             setReportFilter(filter) {
                 this.reportFilter = filter;
-                ['weekly', 'monthly', 'yearly', 'all'].forEach(f => {
+                ['weekly', 'monthly', 'yearly', 'all', 'custom'].forEach(f => {
                     const btn = document.getElementById('filter-' + f);
+                    if (!btn) return;
                     btn.className = f === filter ? "filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 transition" : "filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition";
                 });
                 this.renderReports();
@@ -1385,7 +1904,33 @@
                 if (this.reportFilter === 'monthly') cutoffTime = now - (30 * 24 * 60 * 60 * 1000);
                 if (this.reportFilter === 'yearly') cutoffTime = now - (365 * 24 * 60 * 60 * 1000);
 
-                const filterFn = (item) => item.siteId === this.currentSite && (this.reportFilter === 'all' || item.timestamp >= cutoffTime);
+                let rangeStart = null;
+                let rangeEnd = null;
+                const dateError = document.getElementById('reportDateError');
+                if (dateError) dateError.textContent = '';
+                if (this.reportFilter === 'custom') {
+                    const startValue = document.getElementById('reportStartDate').value;
+                    const endValue = document.getElementById('reportEndDate').value;
+                    if (!startValue || !endValue || startValue > endValue) {
+                        if (dateError) dateError.textContent = 'Choose a valid start and end date.';
+                        return;
+                    }
+                    rangeStart = new Date(`${startValue}T00:00:00`).getTime();
+                    rangeEnd = new Date(`${endValue}T23:59:59.999`).getTime();
+                }
+
+                const matchesTimeframe = item => {
+                    if (this.reportFilter === 'custom' && item.dateStr) {
+                        const startDate = document.getElementById('reportStartDate').value;
+                        const endDate = document.getElementById('reportEndDate').value;
+                        return item.dateStr >= startDate && item.dateStr <= endDate;
+                    }
+                    const timestamp = Number(item.timestamp) || 0;
+                    if (this.reportFilter === 'all') return true;
+                    if (this.reportFilter === 'custom') return timestamp >= rangeStart && timestamp <= rangeEnd;
+                    return timestamp >= cutoffTime;
+                };
+                const filterFn = (item) => item.siteId === this.currentSite && matchesTimeframe(item);
 
                 const filteredReceipts = this.clientReceipts.filter(filterFn);
                 const filteredPayments = this.labourPayments.filter(p => workerIds.includes(p.workerId) && filterFn(p));
@@ -1395,9 +1940,9 @@
                 // Calculate total wage earned from marked attendance
                 let totalAttendanceEarned = 0;
                 siteWorkers.forEach(w => {
-                    const wAtt = this.attendance.filter(a => a.workerId === w.id && (this.reportFilter === 'all' || a.timestamp >= cutoffTime));
+                    const wAtt = this.attendance.filter(a => a.workerId === w.id && matchesTimeframe(a));
                     wAtt.forEach(a => {
-                        const wage = (a.customWage !== null && a.customWage !== undefined) ? a.customWage : w.wage;
+                        const wage = a.customWage !== null && a.customWage !== undefined ? a.customWage : this.wageForDate(w, a.dateStr);
                         if (a.status === 'present') totalAttendanceEarned += wage;
                         if (a.status === 'half') totalAttendanceEarned += (wage * 0.5);
                     });
@@ -1412,19 +1957,20 @@
 
                 const tbody = document.getElementById('reportWorkerTableBody');
                 tbody.innerHTML = siteWorkers.map(w => {
-                    const wAtt = this.attendance.filter(a => a.workerId === w.id && (this.reportFilter === 'all' || a.timestamp >= cutoffTime));
+                    const wAtt = this.attendance.filter(a => a.workerId === w.id && matchesTimeframe(a));
                     const present = wAtt.filter(a => a.status === 'present').length;
                     const half = wAtt.filter(a => a.status === 'half').length;
 
                     let totalEarned = 0;
                     wAtt.forEach(a => {
-                        const wage = (a.customWage !== null && a.customWage !== undefined) ? a.customWage : w.wage;
+                        const wage = a.customWage !== null && a.customWage !== undefined ? a.customWage : this.wageForDate(w, a.dateStr);
                         if (a.status === 'present') totalEarned += wage;
                         if (a.status === 'half') totalEarned += (wage * 0.5);
                     });
 
                     const wPayments = filteredPayments.filter(p => p.workerId === w.id);
                     const totalAdvances = wPayments.reduce((sum, p) => sum + p.amount, 0);
+                    const totalMoneyGiven = totalEarned + totalAdvances;
 
                     return `
                         <tr class="hover:bg-slate-900/50">
@@ -1435,6 +1981,7 @@
                             <td class="p-3">${half}</td>
                             <td class="p-3 font-bold text-slate-100">₹${totalEarned.toLocaleString()}</td>
                             <td class="p-3 text-amber-400">₹${totalAdvances.toLocaleString()}</td>
+                            <td class="p-3 font-bold text-emerald-400">₹${totalMoneyGiven.toLocaleString()}</td>
                         </tr>
                     `;
                 }).join('');
@@ -1466,11 +2013,13 @@
             }
 
             closeModals() {
-                ['workerModal', 'attendanceModal', 'paymentModal', 'clientReceiptModal', 'siteModal'].forEach(id => {
+                ['workerModal', 'attendanceModal', 'paymentModal', 'clientReceiptModal', 'siteModal', 'wageChangeModal', 'paymentActionConfirmModal'].forEach(id => {
                     const el = document.getElementById(id);
                     el.classList.add('hidden');
                     el.classList.remove('flex');
                 });
+                this.editingLabourPaymentId = null;
+                this.editingClientReceiptId = null;
             }
         }
 
