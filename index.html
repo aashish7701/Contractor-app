@@ -148,6 +148,7 @@
                         <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span id="statusText">Online</span>
                     </div>
+                    <span id="cloudSyncStatus" class="text-xs text-slate-400" role="status">Cloud: connecting</span>
 
                     <button onclick="app.simulateNetworkToggle()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition" title="Simulate Offline/Online">
                         <i class="fa-solid fa-wifi text-xs"></i>
@@ -575,6 +576,8 @@
         class ContractorApp {
             constructor() {
                 this.db = null;
+                this.cloudUnsubscribers = [];
+                this.applyingCloudData = false;
                 this.isLoggedIn = false;
                 this.isOfflineSimulated = false;
                 this.currentSite = 'Site A - Civil Work';
@@ -676,7 +679,10 @@
                     const tx = this.db.transaction(storeName, 'readwrite');
                     const store = tx.objectStore(storeName);
                     store.put(item);
-                    tx.oncomplete = () => resolve(true);
+                    tx.oncomplete = () => {
+                        if (!this.applyingCloudData) this.syncRecordToCloud(storeName, item);
+                        resolve(true);
+                    };
                     tx.onerror = () => resolve(false);
                 });
             }
@@ -686,7 +692,10 @@
                     const tx = this.db.transaction(storeName, 'readwrite');
                     const store = tx.objectStore(storeName);
                     store.delete(id);
-                    tx.oncomplete = () => resolve(true);
+                    tx.oncomplete = () => {
+                        if (!this.applyingCloudData) this.deleteRecordFromCloud(storeName, id);
+                        resolve(true);
+                    };
                     tx.onerror = () => resolve(false);
                 });
             }
@@ -832,12 +841,70 @@
                 return messages[error?.code] || error?.message || 'Authentication failed. Check your Firebase setup.';
             }
 
-            loginSuccess() {
+            async loginSuccess() {
                 this.isLoggedIn = true;
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
                 document.getElementById('mainApp').classList.add('flex');
                 this.refreshUI();
+                await this.startCloudSync();
+            }
+
+            setCloudStatus(text, failed = false) {
+                const el = document.getElementById('cloudSyncStatus');
+                if (!el) return;
+                el.textContent = `Cloud: ${text}`;
+                el.className = `text-xs ${failed ? 'text-rose-400' : 'text-emerald-400'}`;
+            }
+
+            async startCloudSync() {
+                try {
+                    const { db, collection, getDocs, setDoc, doc, onSnapshot, deleteDoc } = await window.firebaseDataReady;
+                    const { auth } = await window.firebaseAuthReady;
+                    const user = auth.currentUser;
+                    if (!user) return;
+                    this.cloudUnsubscribers.forEach(unsubscribe => unsubscribe());
+                    this.cloudUnsubscribers = [];
+                    const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
+                    for (const storeName of stores) {
+                        const path = collection(db, 'users', user.uid, storeName);
+                        const remote = await getDocs(path);
+                        const localItems = await this.IDBGetAll(storeName);
+                        // Upload existing device data so enabling sync does not discard it.
+                        for (const item of localItems) await setDoc(doc(db, 'users', user.uid, storeName, String(item.id)), item, { merge: true });
+                        this.cloudUnsubscribers.push(onSnapshot(path, async snapshot => {
+                            this.applyingCloudData = true;
+                            try {
+                                for (const record of snapshot.docs) await this.IDBPut(storeName, { ...record.data(), id: record.id });
+                                const key = { sites: 'sites', workers: 'workers', attendance: 'attendance', labourPayments: 'labourPayments', clientReceipts: 'clientReceipts' }[storeName];
+                                this[key] = await this.IDBGetAll(storeName);
+                                this.refreshUI();
+                                this.setCloudStatus('synced');
+                            } finally { this.applyingCloudData = false; }
+                        }, error => { console.error('Cloud sync listener failed:', error); this.setCloudStatus('sync error', true); }));
+                    }
+                    this.setCloudStatus('synced');
+                } catch (error) {
+                    console.error('Cloud sync failed:', error);
+                    this.setCloudStatus(error?.code === 'permission-denied' ? 'check Firestore rules' : 'unavailable', true);
+                }
+            }
+
+            async syncRecordToCloud(storeName, item) {
+                try {
+                    const { db, doc, setDoc } = await window.firebaseDataReady;
+                    const { auth } = await window.firebaseAuthReady;
+                    if (auth.currentUser) await setDoc(doc(db, 'users', auth.currentUser.uid, storeName, String(item.id)), item, { merge: true });
+                    this.setCloudStatus('synced');
+                } catch (error) { console.error('Cloud write failed:', error); this.setCloudStatus('pending', true); }
+            }
+
+            async deleteRecordFromCloud(storeName, id) {
+                try {
+                    const { db, doc, deleteDoc } = await window.firebaseDataReady;
+                    const { auth } = await window.firebaseAuthReady;
+                    if (auth.currentUser) await deleteDoc(doc(db, 'users', auth.currentUser.uid, storeName, String(id)));
+                } catch (error) { console.error('Cloud delete failed:', error); this.setCloudStatus('pending', true); }
             }
 
             async logout() {
@@ -1415,6 +1482,7 @@
     <!-- Firebase Authentication setup -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+        import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
         import {
             getAuth,
             onAuthStateChanged,
@@ -1437,6 +1505,8 @@
         window.firebaseAuthReady = (async () => {
             const firebaseApp = initializeApp(firebaseConfig);
             const auth = getAuth(firebaseApp);
+            const db = getFirestore(firebaseApp);
+            window.firebaseDataReady = Promise.resolve({ db, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot });
             onAuthStateChanged(auth, (user) => {
                 const loginScreen = document.getElementById('loginScreen');
                 const mainApp = document.getElementById('mainApp');
