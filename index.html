@@ -53,6 +53,94 @@
             background-color: #131c2e;
             color: #f1f5f9;
         }
+
+        @media (max-width: 640px) {
+            header .max-w-7xl {
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            header .max-w-7xl > div:first-child {
+                flex: 1 1 100%;
+            }
+            header .max-w-7xl > div:nth-child(2) {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            header .max-w-7xl > div:last-child {
+                gap: 0.4rem;
+            }
+            #cloudSyncStatus {
+                display: none;
+            }
+            #siteSelector {
+                max-width: min(52vw, 220px);
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            nav > .max-w-7xl {
+                scroll-snap-type: x proximity;
+                scrollbar-width: none;
+                -webkit-overflow-scrolling: touch;
+            }
+            nav > .max-w-7xl::-webkit-scrollbar {
+                display: none;
+            }
+            nav .tab-btn {
+                min-height: 44px;
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+                scroll-snap-align: start;
+            }
+            main {
+                padding: 0.75rem !important;
+            }
+            #calendarDaysGrid,
+            #view-calendar .grid.grid-cols-7 {
+                gap: 0.25rem;
+            }
+            #calendarDaysGrid > div {
+                min-width: 0;
+            }
+            #calendarDaysGrid > div[onclick] {
+                padding: 0.35rem;
+                border-radius: 0.65rem;
+            }
+            #calendarDaysGrid > div[onclick] span {
+                font-size: 0.62rem;
+            }
+            #calendarDaysGrid > div[onclick] span:last-child {
+                font-size: 0.55rem;
+            }
+            #view-calendar > div:nth-child(2) {
+                padding: 0.75rem;
+            }
+            #view-calendar > div:nth-child(2) > div:first-child {
+                gap: 0.5rem;
+            }
+            #view-calendar > div:nth-child(2) > div:first-child > div:first-child {
+                gap: 0.5rem;
+            }
+            #workerMonthlySummary {
+                width: 100%;
+                line-height: 1.6;
+            }
+            #workerMonthlySummary strong {
+                white-space: nowrap;
+            }
+            #labourPaymentsList,
+            #clientReceiptsList {
+                max-height: 65vh;
+            }
+            #workerModal > div,
+            #attendanceModal > div,
+            #wageChangeModal > div,
+            #paymentModal > div,
+            #clientReceiptModal > div,
+            #siteModal > div {
+                max-height: calc(100dvh - 2rem);
+                overflow-y: auto;
+            }
+        }
     </style>
 </head>
 <body class="bg-darkBg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-amber-500 selection:text-black">
@@ -70,7 +158,7 @@
                 <p class="text-xs text-slate-400 mt-1">Contractor Attendance, Custom Wage & Cashflow Tracker</p>
             </div>
 
-            <form onsubmit="app.handleLogin(event)" class="space-y-4">
+            <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
                     <div class="relative">
@@ -261,7 +349,7 @@
                     </div>
 
                     <!-- Days Header -->
-                    <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <div class="grid grid-cols-7 gap-1 sm:gap-2 text-center text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
                         <div class="text-rose-400">Sun</div>
                         <div>Mon</div>
                         <div>Tue</div>
@@ -272,7 +360,7 @@
                     </div>
 
                     <!-- Days Grid -->
-                    <div id="calendarDaysGrid" class="grid grid-cols-7 gap-2">
+                    <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1 sm:gap-2">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
@@ -301,7 +389,7 @@
                             <select id="paymentWorkerFilter" onchange="app.renderLabourPayments()" class="ml-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"><option value="">All workers</option></select>
                         </label>
                     </div>
-                    <div id="labourPaymentsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
+                    <div id="labourPaymentsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto p-2">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
@@ -330,7 +418,7 @@
                             <select id="receiptClientFilter" onchange="app.renderClientReceipts()" class="ml-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100"><option value="">All clients</option></select>
                         </label>
                     </div>
-                    <div id="clientReceiptsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
+                    <div id="clientReceiptsList" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto p-2">
                         <!-- Populated dynamically -->
                     </div>
                 </div>
@@ -343,7 +431,7 @@
                     <p class="text-xs text-slate-400 mt-1">Labour payments and client receipts, newest first, for the selected site.</p>
                 </div>
                 <div class="bg-cardBg border border-slate-800 rounded-2xl overflow-hidden shadow-md">
-                    <div id="recentTransactionsList" class="divide-y divide-slate-800/60"></div>
+                    <div id="recentTransactionsList" class="p-3 space-y-2"></div>
                 </div>
             </section>
 
@@ -354,7 +442,6 @@
                         <h2 class="font-bold text-lg text-slate-100">Timeframe Financial Reports</h2>
                         <p class="text-xs text-slate-400">Filter expenses, advances, and earnings by preset timeframe or choose a custom date range.</p>
                     </div>
-
                     <!-- Filter Selector -->
                     <div class="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl p-1">
                         <button onclick="app.setReportFilter('weekly')" id="filter-weekly" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-100 transition">Weekly</button>
@@ -730,6 +817,9 @@
                 this.attendance = []; // { id, siteId, workerId, dateStr, status, customWage, notes, timestamp }
                 this.labourPayments = []; // { id, siteId, workerId, amount, mode, notes, timestamp }
                 this.clientReceipts = []; // { id, siteId, amount, mode, notes, timestamp }
+                this.editingLabourPaymentId = null;
+                this.editingClientReceiptId = null;
+                this.pendingPaymentAction = null;
 
                 this.init();
             }
@@ -794,9 +884,6 @@
                     this.attendance = [];
                     this.labourPayments = [];
                     this.clientReceipts = [];
-                this.editingLabourPaymentId = null;
-                this.editingClientReceiptId = null;
-                this.pendingPaymentAction = null;
                     this.refreshUI();
                 }
             }
@@ -891,19 +978,33 @@
                 const email = document.getElementById('loginUser').value.trim();
                 const password = document.getElementById('loginPass').value;
                 const message = document.getElementById('authMessage');
-                message.textContent = '';
+                const submitButton = document.getElementById('authSubmitButton');
+                const submitLabel = document.getElementById('authSubmitLabel');
                 const isRegistering = !document.getElementById('confirmPasswordWrap').classList.contains('hidden');
-                if (isRegistering) {
-                    await this.handleSignUp();
-                    return;
-                }
+                message.classList.remove('text-rose-300');
+                message.classList.add('text-slate-300');
+                message.textContent = isRegistering ? 'Creating your account…' : 'Signing in…';
+                submitButton.disabled = true;
+                submitLabel.textContent = isRegistering ? 'Creating account…' : 'Signing in…';
                 try {
+                    if (isRegistering) {
+                        await this.handleSignUp();
+                        return;
+                    }
                     if (!window.firebaseAuthReady) throw new Error('Firebase is still starting. Please try again.');
                     const { auth, signInWithEmailAndPassword } = await window.firebaseAuthReady;
                     await signInWithEmailAndPassword(auth, email, password);
                     // The Firebase auth-state listener will reveal the app.
                 } catch (error) {
+                    message.classList.remove('text-slate-300');
+                    message.classList.add('text-rose-300');
                     message.textContent = this.authErrorMessage(error);
+                } finally {
+                    if (!document.getElementById('loginScreen').classList.contains('hidden')) {
+                        submitButton.disabled = false;
+                        submitLabel.textContent = isRegistering ? 'Create Account' : 'Secure Login';
+                        if (message.textContent === 'Signing in…' || message.textContent === 'Creating your account…') message.textContent = '';
+                    }
                 }
             }
 
@@ -1238,12 +1339,16 @@
                     const dateLabel = Number.isNaN(date.getTime()) ? 'Date unavailable' : `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
                     const mode = record.mode ? ` · ${record.mode}` : '';
                     const notes = record.notes ? `<p class="text-xs text-slate-500 mt-1">${record.notes}</p>` : '';
-                    return `<article class="p-4 flex items-center justify-between gap-4">
-                        <div class="flex items-start gap-3 min-w-0">
-                            <span class="w-9 h-9 shrink-0 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center ${record.amountClass}"><i class="fa-solid ${record.icon} text-xs"></i></span>
-                            <div class="min-w-0"><h3 class="text-sm font-semibold text-slate-100 truncate">${record.label}</h3><p class="text-xs text-slate-500 mt-1">${dateLabel}${mode}</p>${notes}</div>
+                    return `<article class="p-3 sm:p-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/70 hover:bg-slate-900 transition">
+                        <div class="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
+                            <span class="w-8 h-8 sm:w-9 sm:h-9 shrink-0 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-center ${record.amountClass}"><i class="fa-solid ${record.icon} text-xs"></i></span>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-xs sm:text-sm font-bold text-slate-100 truncate">${record.label}</h3>
+                                <p class="text-[10px] sm:text-xs text-slate-500 mt-1 break-words">${dateLabel}${mode}</p>
+                                ${notes}
+                            </div>
                         </div>
-                        <strong class="shrink-0 text-sm font-mono-custom ${record.amountClass}">${record.amountLabel}</strong>
+                        <strong class="shrink-0 text-xs sm:text-sm font-mono-custom ${record.amountClass}">${record.amountLabel}</strong>
                     </article>`;
                 }).join('');
             }
@@ -1394,7 +1499,7 @@
 
                     html += `
                         <div onclick="app.openAttendanceModal('${worker.id}', '${dateStr}')" 
-                             class="h-24 p-2 rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
+                             class="h-16 sm:h-20 md:h-24 p-1.5 sm:p-2 rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
                             <div class="flex items-center justify-between">
                                 <span class="font-mono-custom font-bold text-xs">${day}</span>
                                 <span class="w-2 h-2 rounded-full ${dotColor}"></span>
@@ -1574,41 +1679,37 @@
 
                     const row = document.createElement('article');
                     row.dataset.paymentId = String(p.id);
-                    row.className = 'p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition';
-                    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;border-bottom:1px solid #1e293b;color:#e2e8f0;min-height:72px;visibility:visible;opacity:1';
+                    row.className = 'p-3 flex items-center gap-3 rounded-xl hover:bg-slate-900/70 transition';
+                    const directionIcon = document.createElement('span');
+                    directionIcon.className = 'w-8 h-8 shrink-0 rounded-xl bg-rose-500/10 border border-rose-500/10 flex items-center justify-center text-rose-400';
+                    directionIcon.innerHTML = '<i class="fa-solid fa-arrow-up text-xs"></i>';
                     const details = document.createElement('div');
-                    details.className = 'space-y-1';
-                    const heading = document.createElement('div');
-                    heading.className = 'flex items-center gap-2';
+                    details.className = 'space-y-0.5 min-w-0 flex-1';
                     const workerName = document.createElement('h4');
-                    workerName.className = 'font-bold text-sm text-slate-100';
-                    workerName.textContent = worker.name || 'Unknown Worker';
-                    const mode = document.createElement('span');
-                    mode.className = 'text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom';
-                    mode.textContent = p.mode || 'Payment';
-                    heading.append(workerName, mode);
-                    details.append(heading);
+                    workerName.className = 'font-bold text-xs text-slate-100 truncate';
+                    workerName.textContent = `Paid to ${worker.name || 'Unknown Worker'}`;
+                    details.append(workerName);
                     const date = document.createElement('p');
-                    date.className = 'text-xs text-slate-400 font-mono-custom';
-                    date.textContent = timeStr;
+                    date.className = 'text-[10px] text-slate-500 font-mono-custom';
+                    date.textContent = `${timeStr} · ${p.mode || 'Payment'}`;
                     details.append(date);
                     if (p.notes) {
                         const notes = document.createElement('p');
-                        notes.className = 'text-xs text-slate-400 italic';
+                        notes.className = 'text-[10px] text-slate-500 italic break-words';
                         notes.textContent = p.notes;
                         details.append(notes);
                     }
                     const amountAndSelect = document.createElement('div');
-                    amountAndSelect.className = 'flex items-center space-x-4';
+                    amountAndSelect.className = 'flex items-center gap-1 shrink-0';
                     const amount = document.createElement('span');
-                    amount.className = 'text-base font-bold font-mono-custom text-amber-400';
-                    amount.textContent = `₹${Number(p.amount || 0).toLocaleString()}`;
+                    amount.className = 'text-xs font-bold font-mono-custom text-rose-400';
+                    amount.textContent = `-₹${Number(p.amount || 0).toLocaleString()}`;
                     amountAndSelect.append(amount);
                     const menuWrap = document.createElement('div');
                     menuWrap.className = 'relative';
                     const menuButton = document.createElement('button');
                     menuButton.type = 'button';
-                    menuButton.className = 'text-slate-400 hover:text-slate-100 p-2 rounded-lg hover:bg-slate-800';
+                    menuButton.className = 'text-slate-500 hover:text-slate-100 w-8 h-8 rounded-lg hover:bg-slate-800';
                     menuButton.setAttribute('aria-label', 'Payment options');
                     menuButton.setAttribute('aria-expanded', 'false');
                     menuButton.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
@@ -1642,7 +1743,7 @@
                     menu.classList.add('payment-options-menu');
                     menuWrap.append(menuButton, menu);
                     amountAndSelect.append(menuWrap);
-                    row.append(details, amountAndSelect);
+                    row.append(directionIcon, details, amountAndSelect);
                     list.appendChild(row);
                 });
             }
@@ -1780,26 +1881,24 @@
                     const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     return `
-                        <div class="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-slate-900/40 transition">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <h4 class="font-bold text-sm text-slate-100">${r.clientName || 'Received from Main Contractor'}</h4>
-                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono-custom">${r.mode}</span>
-                                </div>
-                                <p class="text-xs text-slate-400 font-mono-custom">${timeStr}</p>
-                                ${r.notes ? `<p class="text-xs text-slate-400 italic"><i class="fa-solid fa-note-sticky mr-1"></i>${r.notes}</p>` : ''}
+                        <article class="p-3 flex items-center gap-3 rounded-xl hover:bg-slate-900/70 transition">
+                            <span class="w-8 h-8 shrink-0 rounded-xl bg-emerald-500/10 border border-emerald-500/10 flex items-center justify-center text-emerald-400"><i class="fa-solid fa-arrow-down text-xs"></i></span>
+                            <div class="min-w-0 flex-1 space-y-0.5">
+                                <h4 class="font-bold text-xs text-slate-100 truncate">Receipt from ${r.clientName || 'client'}</h4>
+                                <p class="text-[10px] text-slate-500 font-mono-custom">${timeStr} · ${r.mode || 'Payment'}</p>
+                                ${r.notes ? `<p class="text-[10px] text-slate-500 italic break-words"><i class="fa-solid fa-note-sticky mr-1"></i>${r.notes}</p>` : ''}
                             </div>
-                            <div class="flex items-center space-x-4">
-                                <span class="text-base font-bold font-mono-custom text-emerald-400">+₹${r.amount}</span>
+                            <div class="flex items-center gap-1 shrink-0">
+                                <span class="text-xs font-bold font-mono-custom text-emerald-400">+₹${Number(r.amount || 0).toLocaleString()}</span>
                                 <div class="relative">
-                                    <button type="button" onclick="app.toggleClientReceiptMenu('${r.id}', this)" class="w-9 h-9 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800" aria-label="Receipt options" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                    <button type="button" onclick="app.toggleClientReceiptMenu('${r.id}', this)" class="w-8 h-8 rounded-lg text-slate-500 hover:text-slate-100 hover:bg-slate-800" aria-label="Receipt options" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                                     <div id="receiptMenu-${r.id}" class="receipt-options-menu hidden absolute right-0 top-full z-20 mt-1 min-w-32 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
                                         <button type="button" onclick="app.openEditClientReceipt('${r.id}')" class="w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg">Edit</button>
                                         <button type="button" onclick="app.requestClientReceiptRemoval('${r.id}')" class="w-full text-left px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/10 rounded-lg">Remove</button>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </article>
                     `;
                 }).join('');
             }
@@ -2023,9 +2122,23 @@
             }
         }
 
-        window.onload = () => {
-            window.app = new ContractorApp();
-        };
+        // Stop the browser's default form navigation before calling app code, so errors never reload the page.
+        document.getElementById('loginForm').addEventListener('submit', event => {
+            event.preventDefault();
+            const message = document.getElementById('authMessage');
+            if (!window.app) {
+                message.textContent = 'The app is still starting. Refresh the page and try again.';
+                return;
+            }
+            window.app.handleLogin(event).catch(error => {
+                message.classList.remove('text-slate-300');
+                message.classList.add('text-rose-300');
+                message.textContent = window.app.authErrorMessage(error);
+            });
+        });
+
+        // Instantiate immediately after the markup is parsed; do not wait for remote assets to finish loading.
+        window.app = new ContractorApp();
     </script>
 
     <!-- Firebase Authentication setup -->
