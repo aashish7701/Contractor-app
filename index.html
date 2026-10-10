@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ThekedarPro - Contractor Attendance & Expense Tracker</title>
     <link rel="manifest" href="./manifest.webmanifest">
-    <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4gPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9IiMwYjBmMTkiLz4gPHJlY3QgeD0iNDAiIHk9IjQwIiB3aWR0aD0iNDMyIiBoZWlnaHQ9IjQzMiIgcng9IjkyIiBmaWxsPSIjMTMxYzJlIiBzdHJva2U9IiNmNTllMGIiIHN0cm9rZS1vcGFjaXR5PSIuMzUiIHN0cm9rZS13aWR0aD0iOCIvPiA8cGF0aCBmaWxsPSIjZmJiZjI0IiBkPSJNMTAwIDI3OGExNTYgMTU2IDAgMCAxIDMxMiAwdjIwSDEwMHptLTI0IDQ0aDM2MHY0Mkg3NnptMzgtMTYzIDYwLTY3IDMwIDI3LTYwIDY3em0yNTQtNDAgMzAtMjcgNjAgNjctMzAgMjd6TTIzNSAxMTJoNDJ2ODZoLTQyeiIvPiA8cGF0aCBmaWxsPSIjZjU5ZTBiIiBkPSJNMTM3IDM1MGgyMzh2MzZIMTM3eiIvPiA8L3N2Zz4=" type="image/svg+xml">
     <meta name="theme-color" content="#0b0f19">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -114,7 +114,7 @@
             }
             header .max-w-7xl {
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-columns: minmax(0, 1fr);
                 align-items: center;
                 gap: 0.55rem;
             }
@@ -125,12 +125,15 @@
             }
             header .max-w-7xl > div:nth-child(2) {
                 min-width: 0;
-                width: fit-content;
-                max-width: 58vw;
+                width: 100%;
+                max-width: 100%;
+                justify-self: stretch;
                 padding: 0.2rem 0.45rem;
             }
             header .max-w-7xl > div:last-child {
-                justify-self: end;
+                width: 100%;
+                justify-self: stretch;
+                justify-content: space-between;
                 gap: 0.3rem;
             }
             header .max-w-7xl > div:first-child > div:first-child {
@@ -152,7 +155,7 @@
                 display: none;
             }
             #siteSelector {
-                max-width: min(52vw, 220px);
+                max-width: min(72vw, 260px);
                 overflow: hidden;
                 text-overflow: ellipsis;
             }
