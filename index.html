@@ -302,7 +302,6 @@
                         <input type="password" id="loginPass" required minlength="6" autocomplete="current-password" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-10 pr-4 text-sm text-slate-100 focus:outline-none focus:border-amber-500 transition" placeholder="Enter password (minimum 6 characters)">
                     </div>
                     <p id="loginHint" class="text-[11px] text-slate-500 mt-1">Use your Firebase account. New here? Choose Create Account below.</p>
-                    <p class="text-[11px] text-slate-500 mt-2">For offline use, sign in while connected and reload once to cache the app. Changes are saved on this device and sync when internet returns.</p>
                     <button id="forgotPasswordButton" type="button" onclick="app.handleForgotPassword()" class="text-xs text-amber-400 hover:text-amber-300 mt-2 underline underline-offset-2">Forgot password?</button>
                 </div>
 
@@ -943,6 +942,9 @@
             constructor() {
                 this.theme = localStorage.getItem('thekedarpro-theme') === 'light' ? 'light' : 'dark';
                 this.db = null;
+                this.activeLocalUserId = null;
+                this.loginPromise = null;
+                this.loginUserId = null;
                 this.cloudUnsubscribers = [];
                 this.applyingCloudData = false;
                 this.isLoggedIn = false;
@@ -1015,7 +1017,8 @@
             }
 
             async init() {
-                await this.initIndexedDB();
+                this.localDatabaseReady = this.initIndexedDB();
+                await this.localDatabaseReady;
                 window.addEventListener('online', () => {
                     this.checkInternetConnection();
                 });
@@ -1030,9 +1033,9 @@
                 this.checkLoginSession();
             }
 
-            initIndexedDB() {
+            initIndexedDB(databaseName = 'ThekedarProDB_v2', loadData = true) {
                 return new Promise((resolve) => {
-                    const request = indexedDB.open('ThekedarProDB_v2', 2);
+                    const request = indexedDB.open(databaseName, 2);
 
                     request.onupgradeneeded = (e) => {
                         const db = e.target.result;
@@ -1046,12 +1049,25 @@
 
                     request.onsuccess = async (e) => {
                         this.db = e.target.result;
-                        await this.loadAllDataFromDB();
+                        if (loadData) await this.loadAllDataFromDB();
                         resolve();
                     };
 
                     request.onerror = () => resolve();
                 });
+            }
+
+            async switchToUserDatabase(userId) {
+                if (!userId) return;
+                const databaseName = `ThekedarProDB_v2_${encodeURIComponent(userId)}`;
+                if (this.db?.name === databaseName && this.activeLocalUserId === userId) return;
+
+                this.stopCloudSync();
+                if (this.db?.name !== databaseName) this.db?.close();
+                await this.initIndexedDB(databaseName, false);
+                if (!this.db || this.db.name !== databaseName) throw new Error('Could not open this account’s local database.');
+                this.activeLocalUserId = userId;
+                await this.loadAllDataFromDB();
             }
 
             async loadAllDataFromDB() {
@@ -1182,19 +1198,20 @@
                     if (auth.currentUser) {
                         localStorage.setItem('thekedarpro-user-id', auth.currentUser.uid);
                         window.firebaseCurrentUserId = auth.currentUser.uid;
-                        this.loginSuccess();
+                        await this.loginSuccess(auth.currentUser.uid);
                     } else if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) {
-                        this.loginOffline();
+                        await this.loginOffline(localStorage.getItem('thekedarpro-user-id'));
                     } else {
                         localStorage.removeItem('thekedarpro-user-id');
                         document.getElementById('loginScreen').classList.remove('hidden');
                         document.getElementById('mainApp').classList.add('hidden');
                     }
                 } catch (error) {
-                    if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) this.loginOffline();
+                    if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) {
+                        await this.loginOffline(localStorage.getItem('thekedarpro-user-id'));
+                    }
                     else {
-                        document.getElementById('loginScreen').classList.remove('hidden');
-                        document.getElementById('mainApp').classList.add('hidden');
+                        this.showLoginFailure(error);
                     }
                 }
             }
@@ -1337,16 +1354,32 @@
                 return messages[error?.code] || error?.message || 'Authentication failed. Check your Firebase setup.';
             }
 
-            async loginSuccess() {
-                this.isLoggedIn = true;
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
-                document.getElementById('mainApp').classList.add('flex');
-                this.refreshUI();
-                await this.startCloudSync();
+            async loginSuccess(userId = window.firebaseCurrentUserId) {
+                if (!userId) throw new Error('Cannot open account data without an authenticated user.');
+                if (this.loginPromise && this.loginUserId === userId) return this.loginPromise;
+                this.loginUserId = userId;
+                this.loginPromise = (async () => {
+                    await this.localDatabaseReady;
+                    await this.switchToUserDatabase(userId);
+                    localStorage.setItem('thekedarpro-user-id', userId);
+                    this.isLoggedIn = true;
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('mainApp').classList.add('flex');
+                    this.refreshUI();
+                    await this.startCloudSync();
+                })();
+                try {
+                    await this.loginPromise;
+                } finally {
+                    this.loginPromise = null;
+                    this.loginUserId = null;
+                }
             }
 
-            loginOffline() {
+            async loginOffline(userId) {
+                await this.localDatabaseReady;
+                await this.switchToUserDatabase(userId);
                 this.isLoggedIn = true;
                 document.getElementById('loginScreen').classList.add('hidden');
                 document.getElementById('mainApp').classList.remove('hidden');
@@ -1354,6 +1387,19 @@
                 this.refreshUI();
                 this.updateNetworkStatus();
                 this.setCloudStatus('offline - saved on device', true);
+            }
+
+            showLoginFailure(error) {
+                console.error('Could not open the signed-in account:', error);
+                this.isLoggedIn = false;
+                this.stopCloudSync();
+                document.getElementById('loginScreen').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('flex');
+                const message = document.getElementById('authMessage');
+                message.classList.remove('text-slate-300');
+                message.classList.add('text-rose-300');
+                message.textContent = `Signed in, but could not open account data: ${error?.message || 'Please reload and try again.'}`;
             }
 
             updateNetworkStatus() {
@@ -1407,6 +1453,11 @@
                 el.className = `text-xs ${failed ? 'text-rose-400' : 'text-emerald-400'}`;
             }
 
+            stopCloudSync() {
+                this.cloudUnsubscribers.forEach(unsubscribe => unsubscribe());
+                this.cloudUnsubscribers = [];
+            }
+
             scheduleSyncRetry() {
                 if (this.syncRetryTimer || !this.isLoggedIn || !navigator.onLine || this.isOfflineSimulated) return;
                 this.syncRetryTimer = setTimeout(() => {
@@ -1435,9 +1486,9 @@
                     if (!user) return;
                     localStorage.setItem('thekedarpro-user-id', user.uid);
                     window.firebaseCurrentUserId = user.uid;
+                    await this.initializeAccountData(user.uid);
                     if (!await this.processSyncQueue()) return;
-                    this.cloudUnsubscribers.forEach(unsubscribe => unsubscribe());
-                    this.cloudUnsubscribers = [];
+                    this.stopCloudSync();
                     const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
                     for (const storeName of stores) {
                         const path = collection(db, 'users', user.uid, storeName);
@@ -1446,9 +1497,14 @@
                         // Upload existing device data so enabling sync does not discard it.
                         for (const item of localItems) await setDoc(doc(db, 'users', user.uid, storeName, String(item.id)), item, { merge: true });
                         this.cloudUnsubscribers.push(onSnapshot(path, async snapshot => {
+                            if (this.activeLocalUserId !== user.uid) return;
                             this.applyingCloudData = true;
                             try {
-                                for (const record of snapshot.docs) await this.IDBPut(storeName, { ...record.data(), id: record.id });
+                                for (const record of snapshot.docs) {
+                                    if (this.activeLocalUserId !== user.uid) return;
+                                    await this.IDBPut(storeName, { ...record.data(), id: record.id });
+                                }
+                                if (this.activeLocalUserId !== user.uid) return;
                                 const key = { sites: 'sites', workers: 'workers', attendance: 'attendance', labourPayments: 'labourPayments', clientReceipts: 'clientReceipts' }[storeName];
                                 this[key] = await this.IDBGetAll(storeName);
                                 this.refreshUI();
@@ -1463,6 +1519,37 @@
                     this.setCloudStatus(error?.code === 'permission-denied' ? 'check Firestore rules' : 'unavailable', true);
                     if (error?.code !== 'permission-denied') this.scheduleSyncRetry();
                 }
+            }
+
+            async initializeAccountData(userId) {
+                const { db, collection, doc, getDoc, getDocs, deleteDoc, setDoc } = await window.firebaseDataReady;
+                const marker = doc(db, 'users', userId, 'appMetadata', 'dataInitialization');
+                const markerSnapshot = await getDoc(marker);
+                if (markerSnapshot.exists() && markerSnapshot.data().version === 1) return;
+
+                const stores = ['sites', 'workers', 'attendance', 'labourPayments', 'clientReceipts'];
+                for (const storeName of stores) {
+                    const snapshot = await getDocs(collection(db, 'users', userId, storeName));
+                    for (const record of snapshot.docs) await deleteDoc(record.ref);
+                }
+
+                const storeNames = [...stores, 'syncQueue'];
+                const transaction = this.db.transaction(storeNames, 'readwrite');
+                for (const storeName of storeNames) transaction.objectStore(storeName).clear();
+                await new Promise((resolve, reject) => {
+                    transaction.oncomplete = resolve;
+                    transaction.onerror = () => reject(transaction.error || new Error('Could not initialize this account’s local data.'));
+                    transaction.onabort = () => reject(transaction.error || new Error('Account data initialization was cancelled.'));
+                });
+
+                this.sites = [];
+                this.workers = [];
+                this.attendance = [];
+                this.labourPayments = [];
+                this.clientReceipts = [];
+                await this.loadAllDataFromDB();
+                this.refreshUI();
+                await setDoc(marker, { version: 1, initializedAt: new Date().toISOString() });
             }
 
             async processSyncQueue() {
@@ -1514,6 +1601,7 @@
                 }
                 localStorage.removeItem('thekedarpro-user-id');
                 window.firebaseCurrentUserId = null;
+                this.stopCloudSync();
                 this.clearSyncRetry();
                 this.isLoggedIn = false;
                 document.getElementById('loginScreen').classList.remove('hidden');
@@ -1976,6 +2064,7 @@
                     const dateStr = `${this.calendarYear}-${mStr}-${dStr}`;
 
                     const attRecord = this.attendance.find(a => a.workerId === workerId && a.dateStr === dateStr);
+                    const paymentRecord = attRecord && this.labourPayments.find(payment => payment.attendanceId === attRecord.id);
                     
                     let statusColor = 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700';
                     let dotColor = 'bg-slate-700';
@@ -2014,6 +2103,7 @@
                             <div class="flex flex-col items-start justify-end leading-none gap-0.5 min-w-0">
                                 <span class="text-[10px] font-semibold block truncate ${statusBadgeText ? '' : 'calendar-hint'}">${statusBadgeText || 'Tap to mark'}</span>
                                 ${attRecord && (attRecord.status === 'present' || attRecord.status === 'half') ? `<span class="shrink-0 text-[9px] font-mono-custom text-amber-400">₹${dailyWage}</span>` : ''}
+                                ${paymentRecord ? `<span class="text-[9px] font-mono-custom text-rose-400 truncate max-w-full">₹${Number(paymentRecord.amount).toLocaleString()}</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -2651,7 +2741,7 @@
     <!-- Firebase Authentication setup -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-        import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
         import {
             getAuth,
             onAuthStateChanged,
@@ -2675,16 +2765,22 @@
             const firebaseApp = initializeApp(firebaseConfig);
             const auth = getAuth(firebaseApp);
             const db = getFirestore(firebaseApp);
-            window.firebaseDataReady = Promise.resolve({ db, collection, doc, getDocs, setDoc, deleteDoc, onSnapshot });
-            onAuthStateChanged(auth, (user) => {
+            window.firebaseDataReady = Promise.resolve({ db, collection, doc, getDoc, getDocs, setDoc, deleteDoc, onSnapshot });
+            onAuthStateChanged(auth, async (user) => {
                 const loginScreen = document.getElementById('loginScreen');
                 const mainApp = document.getElementById('mainApp');
                 if (user) {
                     localStorage.setItem('thekedarpro-user-id', user.uid);
                     window.firebaseCurrentUserId = user.uid;
-                    if (window.app) window.app.loginSuccess();
+                    if (window.app) {
+                        try {
+                            await window.app.loginSuccess(user.uid);
+                        } catch (error) {
+                            window.app.showLoginFailure(error);
+                        }
+                    }
                 } else if (!navigator.onLine && localStorage.getItem('thekedarpro-user-id')) {
-                    if (window.app) window.app.loginOffline();
+                    if (window.app) window.app.loginOffline(localStorage.getItem('thekedarpro-user-id'));
                 } else {
                     localStorage.removeItem('thekedarpro-user-id');
                     window.firebaseCurrentUserId = null;
@@ -2692,6 +2788,7 @@
                     mainApp.classList.add('hidden');
                     mainApp.classList.remove('flex');
                     if (window.app) window.app.isLoggedIn = false;
+                    if (window.app) window.app.stopCloudSync();
                 }
             });
             return { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut };
