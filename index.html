@@ -216,13 +216,25 @@
                 min-width: 0;
             }
             #calendarDaysGrid > div[onclick] {
-                height: 44px !important;
-                min-height: 44px;
+                height: 60px !important;
+                min-height: 60px;
                 padding: 0.2rem !important;
                 border-radius: 0.45rem;
+                overflow: hidden;
             }
             #calendarDaysGrid > div:not([onclick]) {
                 height: 44px;
+            }
+            #calendarDaysGrid > div[onclick] .calendar-status,
+            #calendarDaysGrid > div[onclick] .calendar-amount,
+            #calendarDaysGrid > div[onclick] .calendar-payment {
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            #calendarDaysGrid > div[onclick] .calendar-payment {
+                font-size: 0.55rem !important;
             }
             #calendarDaysGrid > div[onclick] span {
                 font-size: 0.55rem;
@@ -261,7 +273,6 @@
             }
             #workerModal > div,
             #attendanceModal > div,
-            #wageChangeModal > div,
             #paymentModal > div,
             #clientReceiptModal > div,
             #siteModal > div {
@@ -617,7 +628,7 @@
                 <div class="bg-cardBg border border-slate-800 rounded-2xl p-5 shadow-md">
                     <div class="mb-4">
                         <h3 class="font-bold text-sm text-slate-200">Worker Attendance, Wages & Payments</h3>
-                        <p class="text-xs text-slate-400 mt-1">This table summarizes each worker for the selected site and report period. Present days earn a full day’s wage; half-days earn half. Wage changes on specific dates are included in earned wages.</p>
+                        <p class="text-xs text-slate-400 mt-1">This table summarizes each worker for the selected site and report period. Present days earn a full day’s wage; half-days earn half.</p>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
@@ -625,7 +636,7 @@
                                 <tr>
                                     <th class="p-3" title="Worker's name">Worker</th>
                                     <th class="p-3" title="Worker's trade or job">Trade</th>
-                                    <th class="p-3" title="Worker's current standard daily wage; date-specific changes are used in earned wages">Daily rate</th>
+                                    <th class="p-3" title="Worker's current standard daily wage used to calculate earned wages">Daily rate</th>
                                     <th class="p-3" title="Full attendance days in the selected period">Full days</th>
                                     <th class="p-3" title="Half attendance days in the selected period">Half days</th>
                                     <th class="p-3" title="Wages accrued from attendance in the selected period">Wages</th>
@@ -670,12 +681,19 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Default Base Wage Rate (₹ / Day)</label>
                         <input type="number" id="newWorkerWage" required min="0" step="any" value="600" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500 font-mono-custom">
-                        <p class="text-[11px] text-slate-500 mt-1">Note: You can override this rate dynamically on any date.</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Edit worker details to update this daily rate.</p>
+                    </div>
+                    <div id="workerWageEffectiveDateWrap" class="hidden">
+                        <label for="workerWageEffectiveDate" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">New wage effective from</label>
+                        <input type="date" id="workerWageEffectiveDate" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
+                        <p class="text-[11px] text-slate-500 mt-1">Attendance before this date keeps the previous wage.</p>
+                        <p id="workerWageEffectiveDateError" class="text-xs text-rose-400" role="status"></p>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Notes / Remarks</label>
                         <input type="text" id="newWorkerNotes" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500" placeholder="Optional notes">
                     </div>
+                    <p id="workerSaveError" class="text-xs text-rose-400" role="status"></p>
                     <div class="flex items-center justify-end space-x-3 pt-2">
                         <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
                         <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Save Worker</button>
@@ -684,12 +702,12 @@
             </div>
         </div>
 
-        <!-- 2. Dynamic Attendance & Custom Payout Modal -->
+        <!-- 2. Attendance & Payment Modal -->
         <div id="attendanceModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
             <div class="bg-cardBg border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
                     <div>
-                        <h3 id="attModalTitle" class="font-bold text-base text-slate-100">Mark Attendance & Wage</h3>
+                        <h3 id="attModalTitle" class="font-bold text-base text-slate-100">Mark Attendance</h3>
                         <p id="attModalDate" class="text-xs text-amber-400 font-mono-custom">Date: </p>
                     </div>
                     <button onclick="app.closeModals()" class="text-slate-400 hover:text-slate-100"><i class="fa-solid fa-xmark"></i></button>
@@ -712,19 +730,6 @@
                             </button>
                         </div>
                         <input type="hidden" id="attSelectedStatus" value="present">
-                    </div>
-
-                    <!-- Daily wage is read-only here; changes are scheduled for a chosen effective date. -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Daily Wage for This Date (₹)</label>
-                        <div class="flex gap-2">
-                          <div class="relative flex-1">
-                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-amber-400 font-bold">₹</span>
-                            <input type="number" id="attCustomAmount" readonly class="w-full bg-slate-900 border border-slate-700/80 rounded-xl py-3 pl-8 pr-4 text-sm text-slate-100 font-mono-custom">
-                          </div>
-                          <button type="button" onclick="app.openWageChangeModal()" class="px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-semibold">Change wage…</button>
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-1">Changing the wage asks for confirmation and an effective date. The calendar applies it from that date onward.</p>
                     </div>
 
                     <div class="p-3 rounded-xl border border-slate-800 bg-slate-900/60 space-y-3">
@@ -751,35 +756,6 @@
                     <div class="flex items-center justify-end space-x-3 pt-2">
                         <button type="button" onclick="app.closeModals()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition">Cancel</button>
                         <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl transition shadow-md">Save Attendance</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- Styled wage change dialog -->
-        <div id="wageChangeModal" class="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
-            <div class="bg-cardBg border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
-                    <div>
-                        <h3 class="font-bold text-base text-slate-100">Change Daily Wage</h3>
-                        <p id="wageChangeWorkerLabel" class="text-xs text-slate-400 mt-1"></p>
-                    </div>
-                    <button type="button" onclick="app.closeWageChangeModal()" class="text-slate-400 hover:text-slate-100" aria-label="Close wage change dialog"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <form onsubmit="app.saveWageChange(event)" class="space-y-4">
-                    <div>
-                        <label for="newDailyWage" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">New Daily Wage (₹)</label>
-                        <input id="newDailyWage" type="number" required min="0" step="any" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 font-mono-custom focus:outline-none focus:border-amber-500">
-                    </div>
-                    <div>
-                        <label for="wageEffectiveDate" class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Effective From</label>
-                        <input id="wageEffectiveDate" type="date" required class="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-amber-500">
-                    </div>
-                    <p id="wageChangeError" class="text-xs text-rose-400" role="status"></p>
-                    <p class="text-xs text-slate-500">The calendar and reports will use this wage from the selected date onward.</p>
-                    <div class="flex justify-end gap-3 pt-2">
-                        <button type="button" onclick="app.closeWageChangeModal()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl">Cancel</button>
-                        <button type="submit" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl">Save Wage Change</button>
                     </div>
                 </form>
             </div>
@@ -957,6 +933,7 @@
                 this.syncRetryDelay = 5000;
                 this.currentSite = 'Site A - Civil Work';
                 this.currentTab = 'workers';
+                this.editingWorkerId = null;
                 
                 // Calendar state
                 this.calendarYear = new Date().getFullYear();
@@ -968,7 +945,7 @@
                 // Data Store Tables
                 this.sites = [];
                 this.workers = [];
-                this.attendance = []; // { id, siteId, workerId, dateStr, status, customWage, notes, timestamp }
+                this.attendance = []; // { id, siteId, workerId, dateStr, status, notes, timestamp }
                 this.labourPayments = []; // { id, siteId, workerId, amount, mode, notes, timestamp }
                 this.clientReceipts = []; // { id, siteId, amount, mode, notes, timestamp }
                 this.editingLabourPaymentId = null;
@@ -1969,8 +1946,6 @@
                     const todayAtt = this.attendance.find(a => a.workerId === w.id && a.dateStr === todayStr);
                     let statusText = 'Not Marked';
                     let badgeClass = 'bg-slate-800 text-slate-400 border-slate-700';
-                    let displayWage = todayAtt && todayAtt.customWage != null ? todayAtt.customWage : this.wageForDate(w, todayStr);
-
                     if (todayAtt) {
                         if (todayAtt.status === 'present') { statusText = 'Present'; badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'; }
                         if (todayAtt.status === 'half') { statusText = 'Half-Day'; badgeClass = 'bg-amber-500/20 text-amber-400 border-amber-500/30'; }
@@ -1980,11 +1955,21 @@
                     return `
                         <div class="bg-cardBg border border-slate-800 rounded-2xl p-4 space-y-3 shadow-md hover:border-slate-700 transition">
                             <div class="flex items-start justify-between">
-                                <div>
+                                <div class="min-w-0">
                                     <h3 class="font-bold text-sm text-slate-100">${w.name}</h3>
                                     <span class="text-xs text-amber-400 font-medium">${w.role}</span>
                                 </div>
-                                <span class="text-[10px] px-2.5 py-0.5 rounded-full border font-semibold ${badgeClass}">${statusText}</span>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span class="text-[10px] px-2.5 py-0.5 rounded-full border font-semibold ${badgeClass}">${statusText}</span>
+                                    <div class="relative">
+                                        <button type="button" onclick="app.toggleWorkerMenu('${w.id}')" class="w-8 h-8 flex items-center justify-center bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg transition" aria-label="Worker options" title="Worker options">
+                                            <i class="fa-solid fa-ellipsis-vertical text-xs"></i>
+                                        </button>
+                                        <div data-worker-menu="${w.id}" class="hidden absolute right-0 top-full z-20 mt-1 min-w-36 rounded-xl border border-slate-700 bg-slate-900 p-1 shadow-xl">
+                                            <button type="button" onclick="app.openEditWorkerModal('${w.id}')" class="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg">Change details</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="text-xs text-slate-400 flex justify-between items-center font-mono-custom pt-1 border-t border-slate-800/60">
@@ -2034,6 +2019,13 @@
                 this.renderAttendanceCalendar();
             }
 
+            wageForDate(worker, dateStr) {
+                const changes = (worker.wageHistory || [])
+                    .filter(change => change.effectiveDate <= dateStr)
+                    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+                return changes.length ? Number(changes[changes.length - 1].amount) : Number(worker.baseWage ?? worker.wage);
+            }
+
             renderAttendanceCalendar() {
                 const workerId = document.getElementById('calendarWorkerSelect').value;
                 const worker = this.workers.find(w => w.id === workerId);
@@ -2069,11 +2061,8 @@
                     let statusColor = 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700';
                     let dotColor = 'bg-slate-700';
                     let statusBadgeText = '';
-                    let dailyWage = worker.wage;
-
+                    const dailyWage = this.wageForDate(worker, dateStr);
                     if (attRecord) {
-                        dailyWage = attRecord.customWage != null ? attRecord.customWage : this.wageForDate(worker, dateStr);
-
                         if (attRecord.status === 'present') {
                             statusColor = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:border-emerald-500/50';
                             dotColor = 'bg-emerald-500';
@@ -2095,15 +2084,15 @@
 
                     html += `
                         <div onclick="app.openAttendanceModal('${worker.id}', '${dateStr}')" 
-                             class="h-14 sm:h-16 md:h-20 p-1 sm:p-1.5 rounded-lg sm:rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none">
-                            <div class="flex items-center justify-between">
+                             class="h-14 sm:h-16 md:h-20 p-1 sm:p-1.5 rounded-lg sm:rounded-xl border ${statusColor} flex flex-col justify-between transition cursor-pointer select-none overflow-hidden min-w-0">
+                            <div class="flex items-center justify-between gap-1 min-w-0">
                                 <span class="font-mono-custom font-bold text-xs">${day}</span>
-                                <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+                                <span class="w-2 h-2 rounded-full ${dotColor} shrink-0"></span>
                             </div>
-                            <div class="flex flex-col items-start justify-end leading-none gap-0.5 min-w-0">
-                                <span class="text-[10px] font-semibold block truncate ${statusBadgeText ? '' : 'calendar-hint'}">${statusBadgeText || 'Tap to mark'}</span>
-                                ${attRecord && (attRecord.status === 'present' || attRecord.status === 'half') ? `<span class="shrink-0 text-[9px] font-mono-custom text-amber-400">₹${dailyWage}</span>` : ''}
-                                ${paymentRecord ? `<span class="text-[9px] font-mono-custom text-rose-400 truncate max-w-full">₹${Number(paymentRecord.amount).toLocaleString()}</span>` : ''}
+                            <div class="flex flex-col items-start justify-end leading-none gap-0.5 min-w-0 w-full">
+                                <span class="calendar-status text-[10px] font-semibold block w-full ${statusBadgeText ? '' : 'calendar-hint'}">${statusBadgeText || 'Tap to mark'}</span>
+                                ${attRecord && (attRecord.status === 'present' || attRecord.status === 'half') ? `<span class="calendar-amount block w-full text-[9px] font-mono-custom text-amber-400">₹${dailyWage}</span>` : ''}
+                                ${paymentRecord ? `<span class="calendar-payment block w-full text-[9px] font-mono-custom text-rose-400">₹${Number(paymentRecord.amount).toLocaleString()}</span>` : ''}
                             </div>
                         </div>
                     `;
@@ -2127,7 +2116,6 @@
                 const existingStatus = attRecord ? attRecord.status : 'present';
                 this.selectAttStatus(existingStatus);
 
-                document.getElementById('attCustomAmount').value = this.wageForDate(worker, dateStr);
                 document.getElementById('attNotes').value = attRecord ? attRecord.notes || '' : '';
                 const linkedPayment = attRecord && this.labourPayments.find(payment => payment.attendanceId === attRecord.id);
                 document.getElementById('attPaymentAmount').value = linkedPayment ? linkedPayment.amount : '';
@@ -2135,52 +2123,6 @@
 
                 document.getElementById('attendanceModal').classList.remove('hidden');
                 document.getElementById('attendanceModal').classList.add('flex');
-            }
-
-            wageForDate(worker, dateStr) {
-                const changes = (worker.wageHistory || []).filter(change => change.effectiveDate <= dateStr)
-                    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-                return changes.length ? Number(changes[changes.length - 1].amount) : Number(worker.wage);
-            }
-
-            openWageChangeModal() {
-                const workerId = document.getElementById('attWorkerId').value;
-                const worker = this.workers.find(item => item.id === workerId);
-                const selectedDate = document.getElementById('attDateStr').value;
-                if (!worker) return;
-                document.getElementById('wageChangeWorkerLabel').textContent = `For ${worker.name}`;
-                document.getElementById('newDailyWage').value = this.wageForDate(worker, selectedDate);
-                document.getElementById('wageEffectiveDate').value = selectedDate;
-                document.getElementById('wageChangeError').textContent = '';
-                const modal = document.getElementById('wageChangeModal');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-
-            closeWageChangeModal() {
-                const modal = document.getElementById('wageChangeModal');
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-
-            async saveWageChange(e) {
-                e.preventDefault();
-                const workerId = document.getElementById('attWorkerId').value;
-                const worker = this.workers.find(item => item.id === workerId);
-                const amount = Number(document.getElementById('newDailyWage').value);
-                const effectiveDate = document.getElementById('wageEffectiveDate').value;
-                const error = document.getElementById('wageChangeError');
-                if (!worker || !Number.isFinite(amount) || amount < 0 || !effectiveDate) {
-                    error.textContent = 'Enter a valid wage and effective date.';
-                    return;
-                }
-                worker.wageHistory = [...(worker.wageHistory || []), { effectiveDate, amount, createdAt: Date.now() }]
-                    .filter((change, index, list) => list.findIndex(item => item.effectiveDate === change.effectiveDate) === index);
-                worker.wageHistory.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-                await this.IDBPut('workers', worker);
-                document.getElementById('attCustomAmount').value = this.wageForDate(worker, document.getElementById('attDateStr').value);
-                this.closeWageChangeModal();
-                this.refreshUI();
             }
 
             selectAttStatus(status) {
@@ -2215,7 +2157,6 @@
                     workerId,
                     dateStr,
                     status,
-                    customWage: null,
                     notes,
                     timestamp: Date.now()
                 };
@@ -2638,7 +2579,7 @@
                 siteWorkers.forEach(w => {
                     const wAtt = this.attendance.filter(a => a.workerId === w.id && matchesTimeframe(a));
                     wAtt.forEach(a => {
-                        const wage = a.customWage !== null && a.customWage !== undefined ? a.customWage : this.wageForDate(w, a.dateStr);
+                        const wage = this.wageForDate(w, a.dateStr);
                         if (a.status === 'present') totalAttendanceEarned += wage;
                         if (a.status === 'half') totalAttendanceEarned += (wage * 0.5);
                     });
@@ -2659,7 +2600,7 @@
 
                     let totalEarned = 0;
                     wAtt.forEach(a => {
-                        const wage = a.customWage !== null && a.customWage !== undefined ? a.customWage : this.wageForDate(w, a.dateStr);
+                        const wage = this.wageForDate(w, a.dateStr);
                         if (a.status === 'present') totalEarned += wage;
                         if (a.status === 'half') totalEarned += (wage * 0.5);
                     });
@@ -2684,6 +2625,45 @@
             }
 
             openAddWorkerModal() {
+                this.editingWorkerId = null;
+                document.getElementById('newWorkerName').value = '';
+                document.getElementById('newWorkerRole').value = 'Mason / Mistry';
+                document.getElementById('newWorkerWage').value = '600';
+                document.getElementById('newWorkerNotes').value = '';
+                document.getElementById('workerWageEffectiveDateWrap').classList.add('hidden');
+                document.getElementById('workerWageEffectiveDateError').textContent = '';
+                document.getElementById('workerSaveError').textContent = '';
+                document.querySelector('#workerModal h3').textContent = 'Add New Worker';
+                document.querySelector('#workerModal button[type="submit"]').textContent = 'Save Worker';
+                document.getElementById('workerModal').classList.remove('hidden');
+                document.getElementById('workerModal').classList.add('flex');
+            }
+
+            toggleWorkerMenu(workerId) {
+                const menu = [...document.querySelectorAll('[data-worker-menu]')]
+                    .find(item => item.dataset.workerMenu === workerId);
+                if (!menu) return;
+                const shouldOpen = menu.classList.contains('hidden');
+                document.querySelectorAll('[data-worker-menu]').forEach(item => item.classList.add('hidden'));
+                menu.classList.toggle('hidden', !shouldOpen);
+            }
+
+            openEditWorkerModal(workerId) {
+                const worker = this.workers.find(item => item.id === workerId);
+                if (!worker) return;
+                this.editingWorkerId = worker.id;
+                document.querySelectorAll('[data-worker-menu]').forEach(item => item.classList.add('hidden'));
+                document.getElementById('newWorkerName').value = worker.name;
+                document.getElementById('newWorkerRole').value = worker.role;
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('newWorkerWage').value = this.wageForDate(worker, today);
+                document.getElementById('newWorkerNotes').value = worker.notes || '';
+                document.getElementById('workerWageEffectiveDate').value = today;
+                document.getElementById('workerWageEffectiveDateWrap').classList.remove('hidden');
+                document.getElementById('workerWageEffectiveDateError').textContent = '';
+                document.getElementById('workerSaveError').textContent = '';
+                document.querySelector('#workerModal h3').textContent = 'Change Worker Details';
+                document.querySelector('#workerModal button[type="submit"]').textContent = 'Save Changes';
                 document.getElementById('workerModal').classList.remove('hidden');
                 document.getElementById('workerModal').classList.add('flex');
             }
@@ -2695,9 +2675,51 @@
                 const wage = parseFloat(document.getElementById('newWorkerWage').value);
                 const notes = document.getElementById('newWorkerNotes').value.trim();
 
-                const newWorker = { id: 'w_' + Date.now(), siteId: this.currentSite, name, role, wage, notes };
+                if (this.editingWorkerId !== null) {
+                    const worker = this.workers.find(item => item.id === this.editingWorkerId);
+                    if (!worker) return;
+                    const wageChanged = Number(worker.wage) !== wage;
+                    const effectiveDate = document.getElementById('workerWageEffectiveDate').value;
+                    if (wageChanged && !effectiveDate) {
+                        document.getElementById('workerWageEffectiveDateError').textContent = 'Choose when the new wage should start.';
+                        document.getElementById('workerWageEffectiveDate').focus();
+                        return;
+                    }
+                    document.getElementById('workerWageEffectiveDateError').textContent = '';
+                    const baseWage = Number(worker.baseWage ?? worker.wage);
+                    let wageHistory = worker.wageHistory || [];
+                    if (wageChanged) {
+                        wageHistory = [
+                            ...wageHistory.filter(change => change.effectiveDate !== effectiveDate),
+                            { effectiveDate, amount: wage, createdAt: Date.now() }
+                        ].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+                    }
+                    const updatedWorker = {
+                        ...worker,
+                        name,
+                        role,
+                        wage: wageChanged ? wage : worker.wage,
+                        baseWage,
+                        wageHistory
+                    };
+                    updatedWorker.wage = this.wageForDate(updatedWorker, new Date().toISOString().split('T')[0]);
+                    updatedWorker.notes = notes;
+                    if (!await this.IDBPut('workers', updatedWorker)) {
+                        document.getElementById('workerSaveError').textContent = 'Could not save worker details. Please try again.';
+                        return;
+                    }
+                    this.workers = this.workers.map(item => item.id === worker.id ? updatedWorker : item);
+                    this.closeModals();
+                    this.refreshUI();
+                    return;
+                }
+
+                const newWorker = { id: 'w_' + Date.now(), siteId: this.currentSite, name, role, wage, baseWage: wage, wageHistory: [], notes };
+                if (!await this.IDBPut('workers', newWorker)) {
+                    document.getElementById('workerSaveError').textContent = 'Could not save worker details. Please try again.';
+                    return;
+                }
                 this.workers.push(newWorker);
-                await this.IDBPut('workers', newWorker);
                 this.closeModals();
                 this.refreshUI();
             }
@@ -2709,11 +2731,12 @@
             }
 
             closeModals() {
-                ['workerModal', 'attendanceModal', 'paymentModal', 'clientReceiptModal', 'siteModal', 'wageChangeModal', 'paymentActionConfirmModal'].forEach(id => {
+                ['workerModal', 'attendanceModal', 'paymentModal', 'clientReceiptModal', 'siteModal', 'paymentActionConfirmModal'].forEach(id => {
                     const el = document.getElementById(id);
                     el.classList.add('hidden');
                     el.classList.remove('flex');
                 });
+                this.editingWorkerId = null;
                 this.editingLabourPaymentId = null;
                 this.editingClientReceiptId = null;
             }
