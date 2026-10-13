@@ -375,22 +375,10 @@
 
                 <!-- Network Status & Logout -->
                 <div class="flex items-center space-x-3">
-                    <div id="statusBadge" class="flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <span id="statusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span id="statusText">Online</span>
-                    </div>
                     <span id="cloudSyncStatus" class="text-xs text-slate-400" role="status">Cloud: connecting</span>
-
-                    <button onclick="app.simulateNetworkToggle()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition" title="Simulate Offline/Online">
-                        <i class="fa-solid fa-wifi text-xs"></i>
-                    </button>
 
                     <button id="themeToggleButton" type="button" onclick="app.toggleTheme()" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition" aria-label="Switch to light theme" title="Switch to light theme">
                         <i id="themeToggleIcon" class="fa-solid fa-sun text-xs" aria-hidden="true"></i>
-                    </button>
-
-                    <button type="button" onclick="app.installApp()" class="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 rounded-xl text-xs transition" aria-label="Install ThekedarPro" title="Install ThekedarPro">
-                        <i class="fa-solid fa-download text-xs" aria-hidden="true"></i>
                     </button>
 
                     <button onclick="app.logout()" class="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs transition" title="Logout">
